@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { AuthService } from "@/lib/firebase/auth"
 import { UserService } from "@/lib/firebase/users"
+import { useAuth } from "@/contexts/AuthContext"
 
 const loginSchema = z.object({
   email: z.string().email("Geçerli bir e-posta adresi giriniz"),
@@ -25,8 +26,33 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const router = useRouter()
+  const { user, loading } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [checkingAuth, setCheckingAuth] = useState(true)
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (loading) return
+      
+      if (user) {
+        const profile = await UserService.getUserProfile(user.uid)
+        if (profile) {
+          if (profile.role === "provider") {
+            router.replace("/provider")
+          } else if (profile.role === "admin") {
+            router.replace("/admin")
+          } else {
+            router.replace("/customer")
+          }
+          return
+        }
+      }
+      setCheckingAuth(false)
+    }
+    
+    checkAuth()
+  }, [user, loading, router])
 
   const {
     register,
@@ -73,6 +99,14 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (loading || checkingAuth) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (

@@ -12,11 +12,35 @@ import { UserService, UserRole } from "@/lib/firebase/users"
 export default function OnboardingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null)
+  const [checkingProfile, setCheckingProfile] = useState(true)
   
   const isFromGoogle = searchParams.get("from") === "google"
+
+  useEffect(() => {
+    const checkUserProfile = async () => {
+      if (loading) return
+      
+      if (user && !isFromGoogle) {
+        const profile = await UserService.getUserProfile(user.uid)
+        if (profile) {
+          if (profile.role === "provider") {
+            router.replace("/provider")
+          } else if (profile.role === "admin") {
+            router.replace("/admin")
+          } else {
+            router.replace("/customer")
+          }
+          return
+        }
+      }
+      setCheckingProfile(false)
+    }
+    
+    checkUserProfile()
+  }, [user, loading, router, isFromGoogle])
 
   const handleRoleSelect = async (role: UserRole) => {
     if (isFromGoogle && user) {
@@ -35,6 +59,14 @@ export default function OnboardingPage() {
         setSelectedRole(null)
       }
     }
+  }
+
+  if (loading || checkingProfile) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
