@@ -1,0 +1,32 @@
+[debug] [2025-11-29T22:22:21.084Z] ----------------------------------------------------------------------
+[debug] [2025-11-29T22:22:21.095Z] Command:       /opt/homebrew/Cellar/node/23.11.0/bin/node /opt/homebrew/bin/firebase deploy
+[debug] [2025-11-29T22:22:21.095Z] CLI Version:   14.25.0
+[debug] [2025-11-29T22:22:21.096Z] Platform:      darwin
+[debug] [2025-11-29T22:22:21.096Z] Node Version:  v23.11.0
+[debug] [2025-11-29T22:22:21.096Z] Time:          Sun Nov 30 2025 01:22:21 GMT+0300 (GMT+03:00)
+[debug] [2025-11-29T22:22:21.096Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-11-29T22:22:21.200Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-11-29T22:22:21.200Z] > authorizing via signed-in user (ibrahimunalofficial@gmail.com)
+[debug] [2025-11-29T22:22:21.200Z] [iam] checking project yazicim-2e5b4 for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasedatabase.instances.update","firebasehosting.sites.update","firebaserules.releases.create","firebaserules.releases.update","firebaserules.rulesets.create"]
+[debug] [2025-11-29T22:22:21.201Z] Checked if tokens are valid: false, expires at: 1764455619115
+[debug] [2025-11-29T22:22:21.201Z] Checked if tokens are valid: false, expires at: 1764455619115
+[debug] [2025-11-29T22:22:21.201Z] > refreshing access token with scopes: []
+[debug] [2025-11-29T22:22:21.202Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-11-29T22:22:21.202Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-11-29T22:22:21.531Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-11-29T22:22:21.531Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-11-29T22:22:21.543Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/yazicim-2e5b4:testIamPermissions [none]
+[debug] [2025-11-29T22:22:21.543Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/yazicim-2e5b4:testIamPermissions x-goog-quota-user=projects/yazicim-2e5b4
+[debug] [2025-11-29T22:22:21.543Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/yazicim-2e5b4:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasedatabase.instances.update","firebasehosting.sites.update","firebaserules.releases.create","firebaserules.releases.update","firebaserules.rulesets.create"]}
+[debug] [2025-11-29T22:22:21.975Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/yazicim-2e5b4:testIamPermissions 200
+[debug] [2025-11-29T22:22:21.976Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/yazicim-2e5b4:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasedatabase.instances.update","firebasehosting.sites.update","firebaserules.releases.create","firebaserules.releases.update","firebaserules.rulesets.create"]}
+[debug] [2025-11-29T22:22:21.976Z] Checked if tokens are valid: true, expires at: 1764458540531
+[debug] [2025-11-29T22:22:21.976Z] Checked if tokens are valid: true, expires at: 1764458540531
+[debug] [2025-11-29T22:22:21.976Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/yazicim-2e5b4 [none]
+[debug] [2025-11-29T22:22:22.453Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/yazicim-2e5b4 200
+[debug] [2025-11-29T22:22:22.453Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/yazicim-2e5b4 {"projectId":"yazicim-2e5b4","projectNumber":"718069838642","displayName":"yazicim","name":"projects/yazicim-2e5b4","resources":{"hostingSite":"yazicim-2e5b4","realtimeDatabaseInstance":"yazicim-2e5b4-default-rtdb"},"state":"ACTIVE","etag":"1_da80e8f7-5384-41df-8174-f0c61dd8c35a"}
+[debug] [2025-11-29T22:22:22.453Z] Checked if tokens are valid: true, expires at: 1764458540531
+[debug] [2025-11-29T22:22:22.453Z] Checked if tokens are valid: true, expires at: 1764458540531
+[debug] [2025-11-29T22:22:22.453Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/yazicim-2e5b4 [none]
+[debug] [2025-11-29T22:22:22.716Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/yazicim-2e5b4 200
