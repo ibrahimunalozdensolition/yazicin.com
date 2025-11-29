@@ -1,0 +1,251 @@
+# Yazıcın.com MVP - Milestone Planı
+**Toplam Bütçe:** 70.000 TL  
+**Milestone Sayısı:** 10  
+**Her Milestone:** 7.000 TL
+
+**Teknoloji Stack:**
+- Next.js (App Router)
+- Tailwind CSS
+- Firebase (Authentication, Firestore, Storage, Cloud Functions)
+
+---
+
+## Milestone 1: Proje Altyapısı ve Temel Kurulum
+**Ödeme:** 7.000 TL
+
+### Kapsam:
+- Next.js projesi kurulumu (App Router)
+- Firebase projesi kurulumu ve yapılandırma
+- Firebase Authentication kurulumu
+- Firestore veritabanı yapısı tasarımı (koleksiyonlar ve kurallar)
+- Tailwind CSS kurulumu ve yapılandırması
+- Temel layout ve master template (header, footer, navigation)
+- Environment variables yapılandırması (.env.local)
+- Git repository kurulumu ve ilk commit
+- Firebase Security Rules (temel)
+- Temel routing yapısı
+
+### Teslim Edilecekler:
+- Çalışan Next.js projesi
+- Firebase projesi ve yapılandırması
+- Firestore veritabanı şema tasarımı (dokümantasyon)
+- Temel layout ve component yapısı
+- Proje dokümantasyonu (kurulum talimatları)
+
+---
+
+## Milestone 2: Üyelik ve Kimlik Doğrulama Sistemi
+**Ödeme:** 7.000 TL
+
+### Kapsam:
+- Firebase Authentication entegrasyonu
+- Kullanıcı kayıt sistemi (e-posta + şifre)
+- Giriş/çıkış işlemleri (Firebase Auth)
+- E-posta doğrulama sistemi (Firebase Auth)
+- Şifre sıfırlama (Firebase Auth)
+- Kullanıcı rolleri Firestore'da saklama (Müşteri, Provider, Admin)
+- Next.js middleware ile route koruma
+- Auth context/provider yapısı (React Context)
+- Kullanıcı profil bilgileri Firestore'a kayıt
+- Temel profil sayfası
+
+### Teslim Edilecekler:
+- Kayıt/Giriş sayfaları (Next.js pages)
+- Firebase Authentication entegrasyonu
+- E-posta doğrulama akışı
+- Şifre sıfırlama akışı
+- Auth middleware ve route protection
+- Kullanıcı dashboard'u (temel)
+- Firestore users koleksiyonu yapısı
+
+---
+
+## Milestone 3: Form Modülleri (İletişim ve Provider Başvuru)
+**Ödeme:** 7.000 TL
+
+### Kapsam:
+- İletişim formu (Next.js form component)
+- Form gönderimleri Firestore'a kayıt (contactForms koleksiyonu)
+- Next.js API route ile form işleme (/api/contact, /api/provider-application)
+- Admin panelinde form listesi görüntüleme (Firestore query)
+- Provider başvuru formu (temel alanlar)
+- Form validasyonları (client-side ve server-side)
+- Firebase Cloud Functions ile e-posta bildirimleri (veya SendGrid/Resend entegrasyonu)
+- Real-time form listesi güncellemesi (Firestore listeners)
+
+### Teslim Edilecekler:
+- İletişim formu sayfası
+- Provider başvuru formu sayfası
+- Next.js API routes (form işleme)
+- Admin panelinde form görüntüleme
+- Firestore koleksiyonları (contactForms, providerApplications)
+- E-posta bildirimleri (Cloud Functions veya API route)
+
+---
+
+## Milestone 4: Provider Yönetim Sistemi (Onay ve Yazıcı Ekleme)
+**Ödeme:** 7.000 TL
+
+### Kapsam:
+- Provider başvuru onay/red sistemi (Admin paneli - Firestore update)
+- Provider yazıcı ekleme formu (Next.js form)
+- Yazıcı bilgileri Firestore'a kayıt (printers koleksiyonu)
+- Yazıcı listesi görüntüleme (Provider paneli - Firestore query)
+- Yazıcı aktif/pasif durumu (Firestore field update)
+- Temel fiyatlandırma alanları (gram/TL, süre/TL)
+- Next.js API routes (yazıcı CRUD işlemleri)
+- Real-time yazıcı listesi güncellemesi
+
+### Teslim Edilecekler:
+- Admin panelinde provider onaylama sayfası
+- Provider panelinde yazıcı ekleme/düzenleme sayfası
+- Yazıcı listesi ve detay sayfaları
+- Firestore koleksiyonları (printers, providers)
+- Next.js API routes (/api/printers)
+- Temel fiyatlandırma yapısı
+
+---
+
+## Milestone 5: STL Dosya Yükleme ve 3D Viewer (Temel)
+**Ödeme:** 7.000 TL
+
+### Kapsam:
+- STL dosya yükleme (dosya validasyonu - client-side)
+- Firebase Storage entegrasyonu (dosya yükleme)
+- Dosya upload progress tracking
+- Temel 3D viewer entegrasyonu (Three.js veya React Three Fiber)
+- Model önizleme (basit görüntüleme)
+- Dosya bilgileri Firestore'a kayıt (dosya URL, metadata)
+- Temel hacim hesaplama (client-side veya Cloud Function)
+- Firebase Storage security rules
+- Dosya download URL oluşturma
+
+### Teslim Edilecekler:
+- Dosya yükleme sayfası (Next.js)
+- Firebase Storage entegrasyonu
+- 3D model görüntüleyici component (React)
+- Dosya bilgileri gösterimi
+- Dosya yükleme progress bar
+- Firestore fileMetadata koleksiyonu
+
+---
+
+## Milestone 6: Baskı Ayarları ve Yazıcı Eşleştirme (Temel)
+**Ödeme:** 7.000 TL
+
+### Kapsam:
+- Baskı ayarları formu (malzeme, renk, doluluk, kalite)
+- Form state yönetimi (React state veya Zustand/Redux)
+- Temel yazıcı filtreleme (Firestore query - konum bazlı basit)
+- Yazıcı listesi görüntüleme (Firestore real-time query)
+- Temel fiyat hesaplama (client-side veya Cloud Function)
+- Yazıcı detay sayfası (temel bilgiler)
+- Next.js dynamic routing (/printers/[id])
+- Firestore indexing yapılandırması
+
+### Teslim Edilecekler:
+- Baskı ayarları sayfası
+- Yazıcı listesi sayfası (Firestore query)
+- Yazıcı detay sayfası (dynamic route)
+- Temel fiyatlandırma hesaplama fonksiyonu
+- Firestore query optimizasyonları
+
+---
+
+## Milestone 7: Sipariş Akışı ve Sepet Sistemi
+**Ödeme:** 7.000 TL
+
+### Kapsam:
+- 4 adımlı sipariş wizard yapısı (Next.js multi-step form)
+- Sipariş oluşturma ve Firestore'a kayıt (orders koleksiyonu)
+- Sipariş durumları (Yeni, Üretimde, Kargoda, Teslim Edildi)
+- Müşteri sipariş listesi (Firestore query - user bazlı)
+- Provider sipariş listesi (Firestore query - provider bazlı)
+- Sipariş detay sayfası (dynamic route)
+- Temel sipariş takip (real-time updates)
+- Next.js API routes (sipariş CRUD)
+- Firestore composite indexes
+
+### Teslim Edilecekler:
+- 4 adımlı sipariş wizard component
+- Sipariş oluşturma sistemi (Firestore)
+- Sipariş listesi sayfaları (Müşteri ve Provider)
+- Sipariş detay sayfası
+- Sipariş durum güncelleme (Firestore update)
+- Firestore orders koleksiyonu yapısı
+
+---
+
+## Milestone 8: Ödeme Entegrasyonu (İyzico)
+**Ödeme:** 7.000 TL
+
+### Kapsam:
+- İyzico entegrasyonu (Next.js API routes)
+- Ödeme sayfası (client-side)
+- Next.js API route ile ödeme işleme (/api/payment)
+- Ödeme başarı/hata yönetimi
+- Ödeme sonrası sipariş durumu güncelleme (Firestore)
+- Komisyon hesaplama yapısı (temel - Cloud Function veya API route)
+- Ödeme geçmişi (Firestore payments koleksiyonu)
+- Ödeme callback işlemleri (webhook handling)
+- Güvenli API key yönetimi (environment variables)
+
+### Teslim Edilecekler:
+- İyzico entegrasyonu (Next.js API routes)
+- Ödeme sayfası
+- Ödeme callback işlemleri (/api/payment/callback)
+- Ödeme geçmişi görüntüleme (Firestore query)
+- Firestore payments koleksiyonu
+- Komisyon hesaplama fonksiyonu
+
+---
+
+## Milestone 9: Müşteri ve Provider Panelleri (Dashboard)
+**Ödeme:** 7.000 TL
+
+### Kapsam:
+- Müşteri paneli dashboard (istatistikler - Firestore aggregations)
+- Provider paneli dashboard (istatistikler, kazanç - Firestore queries)
+- Panel menü yapıları (Next.js navigation)
+- Profil düzenleme sayfaları (Firestore update)
+- Adres yönetimi (Müşteri - Firestore addresses koleksiyonu)
+- Yazıcı yönetimi (Provider - detaylı CRUD)
+- Temel raporlama (Firestore query ile istatistikler)
+- Real-time dashboard güncellemeleri
+- Chart kütüphanesi entegrasyonu (Recharts veya Chart.js)
+
+### Teslim Edilecekler:
+- Müşteri paneli dashboard sayfası
+- Provider paneli dashboard sayfası
+- Profil düzenleme sayfaları
+- Adres yönetimi sayfası
+- Firestore addresses koleksiyonu
+- Temel istatistikler (Firestore aggregations)
+- Dashboard chart'ları
+
+---
+
+## Milestone 10: Mesajlaşma ve Bildirim Sistemi
+**Ödeme:** 7.000 TL
+
+### Kapsam:
+- Sipariş bazlı mesajlaşma sistemi (Firestore messages koleksiyonu)
+- Mesaj gönderme/alma (real-time Firestore listeners)
+- Real-time mesajlaşma (Firestore onSnapshot)
+- E-posta bildirimleri (Firebase Cloud Functions veya API route)
+- Panel içi bildirimler (Firestore notifications koleksiyonu)
+- Bildirim ikonu ve sayacı (real-time badge)
+- Temel admin paneli (sipariş yönetimi - Firestore CRUD)
+- Bildirim okundu/okunmadı durumu
+- Firestore security rules (mesajlaşma ve bildirimler için)
+
+### Teslim Edilecekler:
+- Mesajlaşma sistemi (real-time)
+- Firestore messages ve notifications koleksiyonları
+- E-posta bildirimleri (Cloud Functions veya API route)
+- Panel içi bildirimler component
+- Bildirim badge ve sayacı
+- Admin paneli (temel - sipariş yönetimi)
+- Real-time mesajlaşma UI
+
+---
