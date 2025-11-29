@@ -29,17 +29,22 @@ export const UserService = {
       const { email, displayName, photoURL, phoneNumber, emailVerified } = user;
       const createdAt = serverTimestamp();
 
-      const newProfile: UserProfile = {
+      const newProfile: Record<string, any> = {
         uid: user.uid,
         email: email || "",
         displayName: displayName || "",
         role: additionalData.role,
-        photoURL: photoURL || undefined,
-        phoneNumber: phoneNumber || undefined,
-        isEmailVerified: emailVerified,
+        isEmailVerified: emailVerified || false,
         createdAt,
         updatedAt: createdAt,
       };
+
+      if (photoURL) {
+        newProfile.photoURL = photoURL;
+      }
+      if (phoneNumber) {
+        newProfile.phoneNumber = phoneNumber;
+      }
 
       try {
         await setDoc(userRef, newProfile);

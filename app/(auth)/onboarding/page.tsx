@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
 import { Printer, ShoppingBag, ArrowRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,49 +9,67 @@ import { useAuth } from "@/contexts/AuthContext"
 import { UserService, UserRole } from "@/lib/firebase/users"
 
 export default function OnboardingPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const { user, loading } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null)
-  const [checkingProfile, setCheckingProfile] = useState(true)
-  
-  const isFromGoogle = searchParams.get("from") === "google"
+  const [pageReady, setPageReady] = useState(false)
+  const [needsOnboarding, setNeedsOnboarding] = useState(false)
 
   useEffect(() => {
+    let isMounted = true
+    
     const checkUserProfile = async () => {
       if (loading) return
       
-      if (user && !isFromGoogle) {
+      if (!user) {
+        if (isMounted) {
+          setPageReady(true)
+          setNeedsOnboarding(true)
+        }
+        return
+      }
+
+      try {
         const profile = await UserService.getUserProfile(user.uid)
-        if (profile) {
-          if (profile.role === "provider") {
-            router.replace("/provider")
-          } else if (profile.role === "admin") {
-            router.replace("/admin")
-          } else {
-            router.replace("/customer")
-          }
+        
+        if (profile && profile.role) {
+          const redirectUrl = profile.role === "provider" 
+            ? "/provider" 
+            : profile.role === "admin" 
+              ? "/admin" 
+              : "/customer"
+          
+          window.location.href = redirectUrl
           return
         }
+        
+        if (isMounted) {
+          setPageReady(true)
+          setNeedsOnboarding(true)
+        }
+      } catch (error) {
+        console.error("Profile check error:", error)
+        if (isMounted) {
+          setPageReady(true)
+          setNeedsOnboarding(true)
+        }
       }
-      setCheckingProfile(false)
     }
     
     checkUserProfile()
-  }, [user, loading, router, isFromGoogle])
+    
+    return () => {
+      isMounted = false
+    }
+  }, [user, loading])
 
   const handleRoleSelect = async (role: UserRole) => {
-    if (isFromGoogle && user) {
+    if (user) {
       setIsLoading(true)
       setSelectedRole(role)
       try {
         await UserService.createUserProfile(user, { role })
-        if (role === "provider") {
-          router.push("/provider")
-        } else {
-          router.push("/customer")
-        }
+        window.location.href = role === "provider" ? "/provider" : "/customer"
       } catch (error) {
         console.error(error)
         setIsLoading(false)
@@ -61,7 +78,15 @@ export default function OnboardingPage() {
     }
   }
 
-  if (loading || checkingProfile) {
+  if (!pageReady || loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+  
+  if (!needsOnboarding) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -115,7 +140,7 @@ export default function OnboardingPage() {
             </ul>
           </CardContent>
           <CardFooter className="pt-4">
-            {isFromGoogle && user ? (
+            {user ? (
               <Button 
                 className="w-full h-11 text-base gap-2"
                 onClick={() => handleRoleSelect("customer")}
@@ -173,7 +198,7 @@ export default function OnboardingPage() {
             </ul>
           </CardContent>
           <CardFooter className="pt-4">
-            {isFromGoogle && user ? (
+            {user ? (
               <Button 
                 variant="secondary"
                 className="w-full h-11 text-base gap-2"
