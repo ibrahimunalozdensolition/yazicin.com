@@ -16,10 +16,17 @@ import {
   XCircle, Edit, BadgeCheck, Briefcase
 } from "lucide-react"
 
+interface CustomerAddress {
+  city: string
+  district: string
+  fullAddress: string
+}
+
 export default function ProfilePage() {
   const { user } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [providerApplication, setProviderApplication] = useState<ProviderApplication | null>(null)
+  const [customerAddress, setCustomerAddress] = useState<CustomerAddress | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -33,6 +40,24 @@ export default function ProfilePage() {
         if (profileData?.role === 'provider') {
           const applicationData = await ProviderApplicationService.getByUserId(user.uid)
           setProviderApplication(applicationData)
+        }
+        
+        // Müşteri ise adres bilgisini çek
+        if (profileData?.role === 'customer') {
+          const { collection, query, where, getDocs } = await import("firebase/firestore")
+          const { db } = await import("@/lib/firebase/config")
+          
+          const addressQuery = query(
+            collection(db, "addresses"),
+            where("userId", "==", user.uid),
+            where("isDefault", "==", true)
+          )
+          const addressSnapshot = await getDocs(addressQuery)
+          
+          if (!addressSnapshot.empty) {
+            const addressData = addressSnapshot.docs[0].data() as CustomerAddress
+            setCustomerAddress(addressData)
+          }
         }
       }
       setLoading(false)
@@ -361,23 +386,61 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Customer specific - simple message */}
+        {/* Customer specific - Address Info */}
+        {profile?.role === 'customer' && customerAddress && (
+          <Card className="mt-6 border-border/50 shadow-lg backdrop-blur-sm bg-card/80 overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-accent/50 via-accent to-accent/50" />
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10">
+                  <MapPin className="h-5 w-5 text-accent" />
+                </div>
+                Teslimat Adresi
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">İl</Label>
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
+                    <span className="font-medium">{customerAddress.city}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider">İlçe</Label>
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
+                    <span className="font-medium">{customerAddress.district}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Açık Adres</Label>
+                <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
+                  <span className="font-medium text-sm">{customerAddress.fullAddress}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Customer CTA */}
         {profile?.role === 'customer' && (
           <Card className="mt-6 border-border/50 shadow-lg backdrop-blur-sm bg-card/80 overflow-hidden">
             <div className="h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
             <CardContent className="pt-6">
-              <div className="text-center py-8 space-y-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mx-auto">
-                  <User className="h-8 w-8 text-primary" />
+              <div className="text-center py-6 space-y-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 mx-auto">
+                  <User className="h-7 w-7 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Müşteri Hesabı</h3>
-                  <p className="text-muted-foreground mt-1">
-                    3D baskı siparişlerinizi kolayca takip edebilirsiniz.
+                  <h3 className="text-lg font-semibold text-foreground">3D Baskı Hizmeti Al</h3>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    STL dosyanızı yükleyin, en yakın yazıcıyı bulun ve sipariş verin.
                   </p>
                 </div>
                 <Link href="/order/new">
-                  <Button className="mt-4 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70">
+                  <Button className="mt-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70">
                     Yeni Sipariş Ver
                   </Button>
                 </Link>

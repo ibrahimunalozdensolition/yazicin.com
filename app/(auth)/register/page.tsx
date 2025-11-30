@@ -85,8 +85,8 @@ export default function RegisterPage() {
         router.push("/verify-email?redirect=/provider-application")
       } else {
         await UserService.createUserProfile(user, { role: data.role })
-        await AuthService.sendVerificationEmail(user, "/customer")
-        router.push("/verify-email")
+        await AuthService.sendVerificationEmail(user, "/customer-setup")
+        router.push("/verify-email?redirect=/customer-setup")
       }
     } catch (err: any) {
       console.error(err)

@@ -73,7 +73,7 @@ export default function OnboardingPage() {
           window.location.href = "/provider-application"
         } else {
           await UserService.createUserProfile(user, { role })
-          window.location.href = "/customer"
+          window.location.href = "/customer-setup"
         }
       } catch (error) {
         console.error(error)
