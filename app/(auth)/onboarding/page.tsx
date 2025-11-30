@@ -16,8 +16,8 @@ export default function OnboardingPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState<UserRole | null>(null)
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null)
-  const [pageReady, setPageReady] = useState(false)
-  const [needsOnboarding, setNeedsOnboarding] = useState(false)
+  const [checkingProfile, setCheckingProfile] = useState(true)
+  const [showContent, setShowContent] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -25,37 +25,45 @@ export default function OnboardingPage() {
     const checkUserProfile = async () => {
       if (loading) return
       
+      // Kullanıcı giriş yapmamışsa onboarding göster
       if (!user) {
         if (isMounted) {
-          setPageReady(true)
-          setNeedsOnboarding(true)
+          setCheckingProfile(false)
+          setShowContent(true)
         }
         return
       }
 
+      // Kullanıcı giriş yapmışsa profil kontrolü yap
       try {
         const profile = await UserService.getUserProfile(user.uid)
         
+        // Profil ve rol varsa ilgili dashboard'a yönlendir
         if (profile && profile.role) {
-          const redirectUrl = profile.role === "provider" 
-            ? "/provider" 
-            : profile.role === "admin" 
-              ? "/admin" 
-              : "/customer"
+          let redirectUrl = "/customer"
           
-          window.location.href = redirectUrl
+          if (profile.role === "provider") {
+            redirectUrl = "/provider"
+          } else if (profile.role === "admin") {
+            redirectUrl = "/admin"
+          }
+          
+          // Hemen yönlendir, sayfa içeriğini gösterme
+          window.location.replace(redirectUrl)
           return
         }
         
+        // Profil yoksa veya rol yoksa onboarding göster
         if (isMounted) {
-          setPageReady(true)
-          setNeedsOnboarding(true)
+          setCheckingProfile(false)
+          setShowContent(true)
         }
       } catch (error) {
         console.error("Profile check error:", error)
+        // Hata durumunda onboarding göster
         if (isMounted) {
-          setPageReady(true)
-          setNeedsOnboarding(true)
+          setCheckingProfile(false)
+          setShowContent(true)
         }
       }
     }
@@ -116,18 +124,17 @@ export default function OnboardingPage() {
     }
   }
 
-  if (!pageReady || loading) {
+  // Profil kontrolü yapılırken veya yönlendirme beklenirken loading göster
+  if (loading || checkingProfile || !showContent) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-  
-  if (!needsOnboarding) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex h-screen items-center justify-center bg-gradient-to-b from-primary/5 via-background to-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
+            <Loader2 className="h-10 w-10 animate-spin text-primary relative" />
+          </div>
+          <p className="text-sm text-muted-foreground animate-pulse">Kontrol ediliyor...</p>
+        </div>
       </div>
     )
   }
