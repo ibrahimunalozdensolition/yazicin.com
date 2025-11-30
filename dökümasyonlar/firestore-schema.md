@@ -16,6 +16,7 @@ Uygulamadaki tüm kullanıcıların (Müşteri, Provider, Admin) temel profil bi
 | `createdAt` | timestamp | Kayıt tarihi |
 | `updatedAt` | timestamp | Son güncelleme tarihi |
 | `isEmailVerified` | boolean | E-posta doğrulama durumu |
+| `verifiedByAdmin` | boolean | Admin onayı durumu (provider için zorunlu) |
 | `providerId` | string | (Opsiyonel) Eğer role='provider' ise providers koleksiyonundaki ID |
 
 ### `providerApplications` (Provider Başvuruları)

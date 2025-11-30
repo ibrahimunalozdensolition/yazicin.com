@@ -47,10 +47,11 @@ export default function AdminApplicationsPage() {
     try {
       await ProviderApplicationService.approve(app.id, user.uid)
       
-      // Kullanıcı profilini güncelle (rol + telefon)
+      // Kullanıcı profilini güncelle (rol + telefon + admin onayı)
       await UserService.updateUserProfile(app.userId, { 
         role: "provider",
-        phoneNumber: app.phoneNumber 
+        phoneNumber: app.phoneNumber,
+        verifiedByAdmin: true // Admin tarafından onaylandı
       })
       
       const providerRef = doc(db, "providers", app.userId)

@@ -14,6 +14,7 @@ export interface UserProfile {
   createdAt: any;
   updatedAt: any;
   isEmailVerified: boolean;
+  verifiedByAdmin: boolean; // Admin onayı durumu
   providerId?: string; // Eğer provider ise providers koleksiyonundaki ID
 }
 
@@ -35,6 +36,7 @@ export const UserService = {
         displayName: displayName || "",
         role: additionalData.role,
         isEmailVerified: emailVerified || false,
+        verifiedByAdmin: false, // Admin onayı bekliyor
         createdAt,
         updatedAt: createdAt,
       };
