@@ -8,12 +8,19 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   updateProfile,
-  sendEmailVerification
+  sendEmailVerification,
+  ActionCodeSettings
 } from "firebase/auth";
 import { auth } from "./config";
 
+const getActionCodeSettings = (redirectPath: string = "/"): ActionCodeSettings => ({
+  url: typeof window !== "undefined" 
+    ? `${window.location.origin}${redirectPath}`
+    : `https://yazicin.com${redirectPath}`,
+  handleCodeInApp: true,
+});
+
 export const AuthService = {
-  // Kayıt olma
   register: async (email: string, password: string, displayName: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     if (userCredential.user) {
@@ -22,32 +29,29 @@ export const AuthService = {
     return userCredential.user;
   },
 
-  // Giriş yapma
   login: async (email: string, password: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   },
 
-  // Google ile giriş
   loginWithGoogle: async () => {
     const provider = new GoogleAuthProvider();
     const userCredential = await signInWithPopup(auth, provider);
     return userCredential.user;
   },
 
-  // Çıkış yapma
   logout: async () => {
     await signOut(auth);
   },
 
-  // Şifre sıfırlama
   resetPassword: async (email: string) => {
-    await sendPasswordResetEmail(auth, email);
+    const actionCodeSettings = getActionCodeSettings("/login");
+    await sendPasswordResetEmail(auth, email, actionCodeSettings);
   },
 
-  // Email doğrulama gönderme
-  sendVerificationEmail: async (user: User) => {
-    await sendEmailVerification(user);
+  sendVerificationEmail: async (user: User, redirectPath: string = "/customer") => {
+    const actionCodeSettings = getActionCodeSettings(redirectPath);
+    await sendEmailVerification(user, actionCodeSettings);
   }
 };
 
