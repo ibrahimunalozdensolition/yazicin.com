@@ -68,8 +68,13 @@ export default function OnboardingPage() {
       setIsLoading(true)
       setSelectedRole(role)
       try {
-        await UserService.createUserProfile(user, { role })
-        window.location.href = role === "provider" ? "/provider" : "/customer"
+        if (role === "provider") {
+          await UserService.createUserProfile(user, { role: "customer" })
+          window.location.href = "/provider-application"
+        } else {
+          await UserService.createUserProfile(user, { role })
+          window.location.href = "/customer"
+        }
       } catch (error) {
         console.error(error)
         setIsLoading(false)
@@ -209,7 +214,7 @@ export default function OnboardingPage() {
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
-                    Provider Olarak Devam Et
+                    Provider Başvurusu Yap
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
@@ -217,7 +222,7 @@ export default function OnboardingPage() {
             ) : (
               <Link href="/register?role=provider" className="w-full">
                 <Button variant="secondary" className="w-full h-11 text-base gap-2">
-                  Provider Olarak Devam Et
+                  Provider Başvurusu Yap
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>

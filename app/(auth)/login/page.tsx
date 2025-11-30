@@ -32,26 +32,25 @@ export default function LoginPage() {
   const [checkingAuth, setCheckingAuth] = useState(true)
 
   useEffect(() => {
-    const checkAuth = async () => {
-      if (loading) return
-      
-      if (user) {
-        const profile = await UserService.getUserProfile(user.uid)
+    if (loading) return
+    
+    if (user) {
+      UserService.getUserProfile(user.uid).then(profile => {
         if (profile) {
-          if (profile.role === "provider") {
-            router.replace("/provider")
-          } else if (profile.role === "admin") {
-            router.replace("/admin")
-          } else {
-            router.replace("/customer")
-          }
-          return
+          const redirectUrl = profile.role === "provider" 
+            ? "/provider" 
+            : profile.role === "admin" 
+              ? "/admin" 
+              : "/customer"
+          window.location.href = redirectUrl
+        } else {
+          router.replace("/onboarding")
         }
-      }
-      setCheckingAuth(false)
+      })
+      return
     }
     
-    checkAuth()
+    setCheckingAuth(false)
   }, [user, loading, router])
 
   const {

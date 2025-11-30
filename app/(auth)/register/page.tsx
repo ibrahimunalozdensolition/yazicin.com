@@ -42,26 +42,25 @@ export default function RegisterPage() {
   const isProvider = defaultRole === "provider"
 
   useEffect(() => {
-    const checkAuth = async () => {
-      if (loading) return
-      
-      if (user) {
-        const profile = await UserService.getUserProfile(user.uid)
+    if (loading) return
+    
+    if (user) {
+      UserService.getUserProfile(user.uid).then(profile => {
         if (profile) {
-          if (profile.role === "provider") {
-            router.replace("/provider")
-          } else if (profile.role === "admin") {
-            router.replace("/admin")
-          } else {
-            router.replace("/customer")
-          }
-          return
+          const redirectUrl = profile.role === "provider" 
+            ? "/provider" 
+            : profile.role === "admin" 
+              ? "/admin" 
+              : "/customer"
+          window.location.href = redirectUrl
+        } else {
+          setCheckingAuth(false)
         }
-      }
-      setCheckingAuth(false)
+      })
+      return
     }
     
-    checkAuth()
+    setCheckingAuth(false)
   }, [user, loading, router])
 
   const {
@@ -80,9 +79,15 @@ export default function RegisterPage() {
     setError(null)
     try {
       const user = await AuthService.register(data.email, data.password, data.displayName)
-      await UserService.createUserProfile(user, { role: data.role })
-      await AuthService.sendVerificationEmail(user)
-      router.push("/verify-email")
+      if (data.role === "provider") {
+        await UserService.createUserProfile(user, { role: "customer" })
+        await AuthService.sendVerificationEmail(user)
+        router.push("/verify-email?redirect=/provider-application")
+      } else {
+        await UserService.createUserProfile(user, { role: data.role })
+        await AuthService.sendVerificationEmail(user)
+        router.push("/verify-email")
+      }
     } catch (err: any) {
       console.error(err)
       if (err.code === "auth/email-already-in-use") {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Loader2, Mail, CheckCircle, RefreshCw } from "lucide-react"
@@ -12,9 +12,12 @@ import { Card, CardContent } from "@/components/ui/card"
 
 export default function VerifyEmailPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading } = useAuth()
   const [isSending, setIsSending] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  
+  const redirectUrl = searchParams.get("redirect") || "/customer"
 
   useEffect(() => {
     if (!loading && !user) {
@@ -22,9 +25,9 @@ export default function VerifyEmailPage() {
     }
     
     if (user?.emailVerified) {
-      router.push("/")
+      window.location.href = redirectUrl
     }
-  }, [user, loading, router])
+  }, [user, loading, router, redirectUrl])
 
   const handleResendVerification = async () => {
     if (!user) return
@@ -43,7 +46,14 @@ export default function VerifyEmailPage() {
   }
 
   const handleCheckVerification = async () => {
-    window.location.reload()
+    if (user) {
+      await user.reload()
+      if (user.emailVerified) {
+        window.location.href = redirectUrl
+      } else {
+        setMessage("E-posta henüz doğrulanmamış. Lütfen gelen kutunuzu kontrol edin.")
+      }
+    }
   }
 
   if (loading || !user) {

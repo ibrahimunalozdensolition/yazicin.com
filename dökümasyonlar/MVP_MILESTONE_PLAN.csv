@@ -1,5 +1,5 @@
-Milestone No,Başlık,Ödeme (TL),Kapsam,Teslim Edilecekler
-1,"Proje Altyapısı ve Temel Kurulum",7000,"- Next.js projesi kurulumu (App Router)
+Milestone No,Başlık,Ödeme (TL),Durum,Kapsam,Teslim Edilecekler
+1,"Proje Altyapısı ve Temel Kurulum",7000,✅ TAMAMLANDI,"- Next.js projesi kurulumu (App Router)
 - Firebase projesi kurulumu ve yapılandırma
 - Firebase Authentication kurulumu
 - Firestore veritabanı yapısı tasarımı (koleksiyonlar ve kurallar)
@@ -13,7 +13,7 @@ Milestone No,Başlık,Ödeme (TL),Kapsam,Teslim Edilecekler
 - Firestore veritabanı şema tasarımı (dokümantasyon)
 - Temel layout ve component yapısı
 - Proje dokümantasyonu (kurulum talimatları)"
-2,"Üyelik ve Kimlik Doğrulama Sistemi",7000,"- Firebase Authentication entegrasyonu
+2,"Üyelik ve Kimlik Doğrulama Sistemi",7000,✅ TAMAMLANDI,"- Firebase Authentication entegrasyonu
 - Kullanıcı kayıt sistemi (e-posta + şifre)
 - Giriş/çıkış işlemleri (Firebase Auth)
 - E-posta doğrulama sistemi (Firebase Auth)
@@ -29,7 +29,7 @@ Milestone No,Başlık,Ödeme (TL),Kapsam,Teslim Edilecekler
 - Auth middleware ve route protection
 - Kullanıcı dashboard'u (temel)
 - Firestore users koleksiyonu yapısı"
-3,"Form Modülleri (İletişim ve Provider Başvuru)",7000,"- İletişim formu (Next.js form component)
+3,"Form Modülleri (İletişim ve Provider Başvuru)",7000,✅ TAMAMLANDI,"- İletişim formu (Next.js form component)
 - Form gönderimleri Firestore'a kayıt (contactForms koleksiyonu)
 - Next.js API route ile form işleme (/api/contact, /api/provider-application)
 - Admin panelinde form listesi görüntüleme (Firestore query)
@@ -42,7 +42,7 @@ Milestone No,Başlık,Ödeme (TL),Kapsam,Teslim Edilecekler
 - Admin panelinde form görüntüleme
 - Firestore koleksiyonları (contactForms, providerApplications)
 - E-posta bildirimleri (Cloud Functions veya API route)"
-4,"Provider Yönetim Sistemi (Onay ve Yazıcı Ekleme)",7000,"- Provider başvuru onay/red sistemi (Admin paneli - Firestore update)
+4,"Provider Yönetim Sistemi (Onay ve Yazıcı Ekleme)",7000,✅ TAMAMLANDI,"- Provider başvuru onay/red sistemi (Admin paneli - Firestore update)
 - Provider yazıcı ekleme formu (Next.js form)
 - Yazıcı bilgileri Firestore'a kayıt (printers koleksiyonu)
 - Yazıcı listesi görüntüleme (Provider paneli - Firestore query)
@@ -55,7 +55,7 @@ Milestone No,Başlık,Ödeme (TL),Kapsam,Teslim Edilecekler
 - Firestore koleksiyonları (printers, providers)
 - Next.js API routes (/api/printers)
 - Temel fiyatlandırma yapısı"
-5,"STL Dosya Yükleme ve 3D Viewer (Temel)",7000,"- STL dosya yükleme (dosya validasyonu - client-side)
+5,"STL Dosya Yükleme ve 3D Viewer (Temel)",7000,🔄 DEVAM EDİYOR,"- STL dosya yükleme (dosya validasyonu - client-side)
 - Firebase Storage entegrasyonu (dosya yükleme)
 - Dosya upload progress tracking
 - Temel 3D viewer entegrasyonu (Three.js veya React Three Fiber)
@@ -69,7 +69,7 @@ Milestone No,Başlık,Ödeme (TL),Kapsam,Teslim Edilecekler
 - Dosya bilgileri gösterimi
 - Dosya yükleme progress bar
 - Firestore fileMetadata koleksiyonu"
-6,"Baskı Ayarları ve Yazıcı Eşleştirme (Temel)",7000,"- Baskı ayarları formu (malzeme, renk, doluluk, kalite)
+6,"Baskı Ayarları ve Yazıcı Eşleştirme (Temel)",7000,⏳ BEKLEMEDE,"- Baskı ayarları formu (malzeme, renk, doluluk, kalite)
 - Form state yönetimi (React state veya Zustand/Redux)
 - Temel yazıcı filtreleme (Firestore query - konum bazlı basit)
 - Yazıcı listesi görüntüleme (Firestore real-time query)
@@ -81,7 +81,7 @@ Milestone No,Başlık,Ödeme (TL),Kapsam,Teslim Edilecekler
 - Yazıcı detay sayfası (dynamic route)
 - Temel fiyatlandırma hesaplama fonksiyonu
 - Firestore query optimizasyonları"
-7,"Sipariş Akışı ve Sepet Sistemi",7000,"- 4 adımlı sipariş wizard yapısı (Next.js multi-step form)
+7,"Sipariş Akışı ve Sepet Sistemi",7000,⏳ BEKLEMEDE,"- 4 adımlı sipariş wizard yapısı (Next.js multi-step form)
 - Sipariş oluşturma ve Firestore'a kayıt (orders koleksiyonu)
 - Sipariş durumları (Yeni, Üretimde, Kargoda, Teslim Edildi)
 - Müşteri sipariş listesi (Firestore query - user bazlı)
@@ -95,7 +95,7 @@ Milestone No,Başlık,Ödeme (TL),Kapsam,Teslim Edilecekler
 - Sipariş detay sayfası
 - Sipariş durum güncelleme (Firestore update)
 - Firestore orders koleksiyonu yapısı"
-8,"Ödeme Entegrasyonu (İyzico)",7000,"- İyzico entegrasyonu (Next.js API routes)
+8,"Ödeme Entegrasyonu (İyzico)",7000,⏳ BEKLEMEDE,"- İyzico entegrasyonu (Next.js API routes)
 - Ödeme sayfası (client-side)
 - Next.js API route ile ödeme işleme (/api/payment)
 - Ödeme başarı/hata yönetimi
@@ -109,7 +109,7 @@ Milestone No,Başlık,Ödeme (TL),Kapsam,Teslim Edilecekler
 - Ödeme geçmişi görüntüleme (Firestore query)
 - Firestore payments koleksiyonu
 - Komisyon hesaplama fonksiyonu"
-9,"Müşteri ve Provider Panelleri (Dashboard)",7000,"- Müşteri paneli dashboard (istatistikler - Firestore aggregations)
+9,"Müşteri ve Provider Panelleri (Dashboard)",7000,⏳ BEKLEMEDE,"- Müşteri paneli dashboard (istatistikler - Firestore aggregations)
 - Provider paneli dashboard (istatistikler, kazanç - Firestore queries)
 - Panel menü yapıları (Next.js navigation)
 - Profil düzenleme sayfaları (Firestore update)
@@ -124,7 +124,7 @@ Milestone No,Başlık,Ödeme (TL),Kapsam,Teslim Edilecekler
 - Firestore addresses koleksiyonu
 - Temel istatistikler (Firestore aggregations)
 - Dashboard chart'ları"
-10,"Mesajlaşma ve Bildirim Sistemi",7000,"- Sipariş bazlı mesajlaşma sistemi (Firestore messages koleksiyonu)
+10,"Mesajlaşma ve Bildirim Sistemi",7000,⏳ BEKLEMEDE,"- Sipariş bazlı mesajlaşma sistemi (Firestore messages koleksiyonu)
 - Mesaj gönderme/alma (real-time Firestore listeners)
 - Real-time mesajlaşma (Firestore onSnapshot)
 - E-posta bildirimleri (Firebase Cloud Functions veya API route)
@@ -139,4 +139,3 @@ Milestone No,Başlık,Ödeme (TL),Kapsam,Teslim Edilecekler
 - Bildirim badge ve sayacı
 - Admin paneli (temel - sipariş yönetimi)
 - Real-time mesajlaşma UI"
-
