@@ -16,7 +16,6 @@ export interface ProviderApplication {
   address: string;
   printerBrand: string;
   printerModel: string;
-  printerType: string;
   experience: string;
   status: ApplicationStatus;
   adminNote?: string;

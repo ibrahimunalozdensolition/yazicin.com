@@ -261,7 +261,7 @@ export default function AdminApplicationsPage() {
                 <p className="font-medium">{selectedApp.address}</p>
               </div>
 
-              <div className="grid sm:grid-cols-3 gap-4">
+              <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Yazıcı Markası</p>
                   <p className="font-medium">{selectedApp.printerBrand}</p>
@@ -269,10 +269,6 @@ export default function AdminApplicationsPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Yazıcı Modeli</p>
                   <p className="font-medium">{selectedApp.printerModel}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Yazıcı Tipi</p>
-                  <p className="font-medium">{selectedApp.printerType}</p>
                 </div>
               </div>
 
