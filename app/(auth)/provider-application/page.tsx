@@ -14,13 +14,14 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useAuth } from "@/contexts/AuthContext"
 import { ProviderApplicationService } from "@/lib/firebase/providerApplications"
+import { ilceler } from "@/lib/data/turkiye-ilce"
 
 const applicationSchema = z.object({
   phoneNumber: z.string().min(10, "Geçerli bir telefon numarası giriniz"),
   businessName: z.string().min(2, "İşletme adı en az 2 karakter olmalıdır"),
   businessType: z.enum(["individual", "company"]),
-  city: z.string().min(2, "İl seçiniz"),
-  district: z.string().min(2, "İlçe giriniz"),
+  city: z.string().min(1, "İl seçiniz"),
+  district: z.string().min(1, "İlçe seçiniz"),
   address: z.string().min(10, "Adres en az 10 karakter olmalıdır"),
   printerBrand: z.string().min(1, "Yazıcı markası seçiniz"),
   printerModel: z.string().min(1, "Yazıcı modeli seçiniz"),
@@ -221,6 +222,8 @@ export default function ProviderApplicationPage() {
   const [checkingApplication, setCheckingApplication] = useState(true)
   const [selectedBrand, setSelectedBrand] = useState<string>("")
   const [availableModels, setAvailableModels] = useState<string[]>([])
+  const [selectedCity, setSelectedCity] = useState<string>("")
+  const [availableDistricts, setAvailableDistricts] = useState<string[]>([])
 
 
   const {
@@ -240,6 +243,13 @@ export default function ProviderApplicationPage() {
     setValue("printerBrand", brand)
     setValue("printerModel", "")
     setAvailableModels(printerBrands[brand] || [])
+  }
+
+  const handleCityChange = (city: string) => {
+    setSelectedCity(city)
+    setValue("city", city)
+    setValue("district", "")
+    setAvailableDistricts(ilceler[city] || [])
   }
 
   useEffect(() => {
@@ -471,7 +481,8 @@ export default function ProviderApplicationPage() {
                   id="city"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={isLoading}
-                  {...register("city")}
+                  value={selectedCity}
+                  onChange={(e) => handleCityChange(e.target.value)}
                 >
                   <option value="">İl Seçiniz</option>
                   {cities.map((city) => (
@@ -484,12 +495,17 @@ export default function ProviderApplicationPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="district">İlçe</Label>
-                <Input 
-                  id="district" 
-                  placeholder="İlçe giriniz" 
-                  disabled={isLoading}
+                <select
+                  id="district"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={isLoading || !selectedCity}
                   {...register("district")}
-                />
+                >
+                  <option value="">{selectedCity ? "İlçe Seçiniz" : "Önce il seçiniz"}</option>
+                  {availableDistricts.map((district) => (
+                    <option key={district} value={district}>{district}</option>
+                  ))}
+                </select>
                 {errors.district && (
                   <p className="text-xs text-destructive">{errors.district.message}</p>
                 )}
