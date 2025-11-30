@@ -73,7 +73,7 @@ export default function OnboardingPage() {
       setSelectedRole(role)
       try {
         if (role === "provider") {
-          await UserService.createUserProfile(user, { role: "customer" })
+          await UserService.createUserProfile(user, { role: "provider" })
           window.location.href = "/provider-application"
         } else {
           await UserService.createUserProfile(user, { role })
@@ -95,7 +95,7 @@ export default function OnboardingPage() {
       
       if (!existingProfile) {
         if (role === "provider") {
-          await UserService.createUserProfile(googleUser, { role: "customer" })
+          await UserService.createUserProfile(googleUser, { role: "provider" })
           router.push("/provider-application")
         } else {
           await UserService.createUserProfile(googleUser, { role: "customer" })

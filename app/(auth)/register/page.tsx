@@ -81,7 +81,7 @@ export default function RegisterPage() {
     try {
       const user = await AuthService.register(data.email, data.password, data.displayName)
       if (data.role === "provider") {
-        await UserService.createUserProfile(user, { role: "customer" })
+        await UserService.createUserProfile(user, { role: "provider" })
         await AuthService.sendVerificationEmail(user, "/provider-application")
         router.push("/verify-email?redirect=/provider-application")
       } else {
@@ -110,7 +110,7 @@ export default function RegisterPage() {
       
       if (!existingProfile) {
         if (isProvider) {
-          await UserService.createUserProfile(user, { role: "customer" })
+          await UserService.createUserProfile(user, { role: "provider" })
           router.push("/provider-application")
         } else {
           await UserService.createUserProfile(user, { role: "customer" })
