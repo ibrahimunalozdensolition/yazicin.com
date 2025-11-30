@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { Loader2, ArrowLeft, CheckCircle, Printer, Building, MapPin, User, Sparkles, Clock, BadgeCheck } from "lucide-react"
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/contexts/AuthContext"
 import { ProviderApplicationService } from "@/lib/firebase/providerApplications"
 import { ilceler } from "@/lib/data/turkiye-ilce"
@@ -230,6 +231,7 @@ export default function ProviderApplicationPage() {
     register,
     handleSubmit,
     setValue,
+    control,
     formState: { errors },
   } = useForm<ApplicationFormValues>({
     resolver: zodResolver(applicationSchema),
@@ -549,19 +551,21 @@ export default function ProviderApplicationPage() {
             <CardContent className="space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="city" className="text-sm font-medium">İl</Label>
-                  <select
-                    id="city"
-                    className="flex h-11 w-full rounded-xl border-2 border-border/50 bg-background px-4 py-2 text-sm ring-offset-background focus:outline-none focus:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                  <Label className="text-sm font-medium">İl</Label>
+                  <Select 
+                    value={selectedCity} 
+                    onValueChange={handleCityChange}
                     disabled={isLoading}
-                    value={selectedCity}
-                    onChange={(e) => handleCityChange(e.target.value)}
                   >
-                    <option value="">İl Seçiniz</option>
-                    {cities.map((city) => (
-                      <option key={city} value={city}>{city}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="hover:border-accent/50 focus:border-accent/50">
+                      <SelectValue placeholder="İl Seçiniz" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cities.map((city) => (
+                        <SelectItem key={city} value={city}>{city}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors.city && (
                     <p className="text-xs text-destructive flex items-center gap-1">
                       <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
@@ -570,18 +574,27 @@ export default function ProviderApplicationPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="district" className="text-sm font-medium">İlçe</Label>
-                  <select
-                    id="district"
-                    className="flex h-11 w-full rounded-xl border-2 border-border/50 bg-background px-4 py-2 text-sm ring-offset-background focus:outline-none focus:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
-                    disabled={isLoading || !selectedCity}
-                    {...register("district")}
-                  >
-                    <option value="">{selectedCity ? "İlçe Seçiniz" : "Önce il seçiniz"}</option>
-                    {availableDistricts.map((district) => (
-                      <option key={district} value={district}>{district}</option>
-                    ))}
-                  </select>
+                  <Label className="text-sm font-medium">İlçe</Label>
+                  <Controller
+                    name="district"
+                    control={control}
+                    render={({ field }) => (
+                      <Select 
+                        value={field.value} 
+                        onValueChange={field.onChange}
+                        disabled={isLoading || !selectedCity}
+                      >
+                        <SelectTrigger className="hover:border-accent/50 focus:border-accent/50">
+                          <SelectValue placeholder={selectedCity ? "İlçe Seçiniz" : "Önce il seçiniz"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableDistricts.map((district) => (
+                            <SelectItem key={district} value={district}>{district}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                   {errors.district && (
                     <p className="text-xs text-destructive flex items-center gap-1">
                       <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
@@ -626,19 +639,21 @@ export default function ProviderApplicationPage() {
             <CardContent className="space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="printerBrand" className="text-sm font-medium">Yazıcı Markası</Label>
-                  <select
-                    id="printerBrand"
-                    className="flex h-11 w-full rounded-xl border-2 border-border/50 bg-background px-4 py-2 text-sm ring-offset-background focus:outline-none focus:border-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                  <Label className="text-sm font-medium">Yazıcı Markası</Label>
+                  <Select 
+                    value={selectedBrand} 
+                    onValueChange={handleBrandChange}
                     disabled={isLoading}
-                    value={selectedBrand}
-                    onChange={(e) => handleBrandChange(e.target.value)}
                   >
-                    <option value="">Marka Seçiniz</option>
-                    {Object.keys(printerBrands).sort().map((brand) => (
-                      <option key={brand} value={brand}>{brand}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="hover:border-blue-500/50 focus:border-blue-500/50">
+                      <SelectValue placeholder="Marka Seçiniz" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.keys(printerBrands).sort().map((brand) => (
+                        <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors.printerBrand && (
                     <p className="text-xs text-destructive flex items-center gap-1">
                       <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
@@ -647,18 +662,27 @@ export default function ProviderApplicationPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="printerModel" className="text-sm font-medium">Yazıcı Modeli</Label>
-                  <select
-                    id="printerModel"
-                    className="flex h-11 w-full rounded-xl border-2 border-border/50 bg-background px-4 py-2 text-sm ring-offset-background focus:outline-none focus:border-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
-                    disabled={isLoading || !selectedBrand}
-                    {...register("printerModel")}
-                  >
-                    <option value="">{selectedBrand ? "Model Seçiniz" : "Önce marka seçiniz"}</option>
-                    {availableModels.map((model) => (
-                      <option key={model} value={model}>{model}</option>
-                    ))}
-                  </select>
+                  <Label className="text-sm font-medium">Yazıcı Modeli</Label>
+                  <Controller
+                    name="printerModel"
+                    control={control}
+                    render={({ field }) => (
+                      <Select 
+                        value={field.value} 
+                        onValueChange={field.onChange}
+                        disabled={isLoading || !selectedBrand}
+                      >
+                        <SelectTrigger className="hover:border-blue-500/50 focus:border-blue-500/50">
+                          <SelectValue placeholder={selectedBrand ? "Model Seçiniz" : "Önce marka seçiniz"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels.map((model) => (
+                            <SelectItem key={model} value={model}>{model}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                   {errors.printerModel && (
                     <p className="text-xs text-destructive flex items-center gap-1">
                       <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
