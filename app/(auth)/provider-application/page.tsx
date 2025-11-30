@@ -7,7 +7,7 @@ import Image from "next/image"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, ArrowLeft, CheckCircle, Printer, Building, MapPin, User } from "lucide-react"
+import { Loader2, ArrowLeft, CheckCircle, Printer, Building, MapPin, User, Navigation } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,7 +24,6 @@ const applicationSchema = z.object({
   address: z.string().min(10, "Adres en az 10 karakter olmalıdır"),
   printerBrand: z.string().min(1, "Yazıcı markası seçiniz"),
   printerModel: z.string().min(1, "Yazıcı modeli seçiniz"),
-  printerType: z.string().min(2, "Yazıcı tipi seçiniz"),
   experience: z.string().min(10, "Deneyiminizi en az 10 karakter ile açıklayınız"),
 })
 
@@ -40,8 +39,6 @@ const cities = [
   "Nevşehir", "Niğde", "Ordu", "Osmaniye", "Rize", "Sakarya", "Samsun", "Siirt", "Sinop", "Sivas",
   "Şanlıurfa", "Şırnak", "Tekirdağ", "Tokat", "Trabzon", "Tunceli", "Uşak", "Van", "Yalova", "Yozgat", "Zonguldak"
 ]
-
-const printerTypes = ["FDM", "SLA", "SLS", "DLP", "MSLA", "LCD"]
 
 const printerBrands: Record<string, string[]> = {
   "Creality": [
@@ -224,6 +221,8 @@ export default function ProviderApplicationPage() {
   const [checkingApplication, setCheckingApplication] = useState(true)
   const [selectedBrand, setSelectedBrand] = useState<string>("")
   const [availableModels, setAvailableModels] = useState<string[]>([])
+  const [gettingLocation, setGettingLocation] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
 
   const {
     register,
@@ -242,6 +241,71 @@ export default function ProviderApplicationPage() {
     setValue("printerBrand", brand)
     setValue("printerModel", "")
     setAvailableModels(printerBrands[brand] || [])
+  }
+
+  const handleGetLocation = async () => {
+    if (!navigator.geolocation) {
+      setLocationError("Tarayıcınız konum özelliğini desteklemiyor")
+      return
+    }
+
+    setGettingLocation(true)
+    setLocationError(null)
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=tr`
+          )
+          const data = await response.json()
+          
+          if (data.address) {
+            const city = data.address.province || data.address.city || data.address.state || ""
+            const district = data.address.town || data.address.suburb || data.address.district || data.address.county || ""
+            const road = data.address.road || ""
+            const neighbourhood = data.address.neighbourhood || data.address.quarter || ""
+            
+            const matchedCity = cities.find(c => 
+              city.toLowerCase().includes(c.toLowerCase()) || 
+              c.toLowerCase().includes(city.toLowerCase())
+            )
+            
+            if (matchedCity) {
+              setValue("city", matchedCity)
+            }
+            if (district) {
+              setValue("district", district)
+            }
+            if (road || neighbourhood) {
+              setValue("address", `${neighbourhood} ${road}`.trim())
+            }
+          }
+        } catch (err) {
+          setLocationError("Konum bilgisi alınamadı")
+        } finally {
+          setGettingLocation(false)
+        }
+      },
+      (err) => {
+        setGettingLocation(false)
+        switch (err.code) {
+          case err.PERMISSION_DENIED:
+            setLocationError("Konum izni reddedildi")
+            break
+          case err.POSITION_UNAVAILABLE:
+            setLocationError("Konum bilgisi alınamadı")
+            break
+          case err.TIMEOUT:
+            setLocationError("Konum isteği zaman aşımına uğradı")
+            break
+          default:
+            setLocationError("Bilinmeyen bir hata oluştu")
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
   }
 
   useEffect(() => {
@@ -460,10 +524,30 @@ export default function ProviderApplicationPage() {
 
         <Card className="border-border/50">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-muted-foreground" />
-              Konum Bilgileri
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-muted-foreground" />
+                Konum Bilgileri
+              </CardTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleGetLocation}
+                disabled={gettingLocation || isLoading}
+                className="gap-2"
+              >
+                {gettingLocation ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Navigation className="h-4 w-4" />
+                )}
+                Konumumu Getir
+              </Button>
+            </div>
+            {locationError && (
+              <p className="text-xs text-destructive mt-2">{locationError}</p>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
@@ -561,23 +645,6 @@ export default function ProviderApplicationPage() {
                   <p className="text-xs text-destructive">{errors.printerModel.message}</p>
                 )}
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="printerType">Yazıcı Tipi</Label>
-              <select
-                id="printerType"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isLoading}
-                {...register("printerType")}
-              >
-                <option value="">Tip Seçiniz</option>
-                {printerTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-              {errors.printerType && (
-                <p className="text-xs text-destructive">{errors.printerType.message}</p>
-              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="experience">3D Baskı Deneyiminiz</Label>
