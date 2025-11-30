@@ -113,9 +113,11 @@ export default function CustomerSetupPage() {
       
       await addDoc(collection(db, "addresses"), {
         userId: user.uid,
+        title: "Ev", // Varsayılan adres başlığı
         city: data.city,
         district: data.district,
         fullAddress: data.address,
+        zipCode: "", // Opsiyonel
         isDefault: true,
         createdAt: serverTimestamp(),
       })

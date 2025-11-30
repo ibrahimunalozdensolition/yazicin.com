@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { ArrowLeft, Loader2, Upload, Box, Palette, Settings, CheckCircle } from "lucide-react"
+import { ArrowLeft, Loader2, Upload, Box, Palette, Settings, CheckCircle, Layers, Triangle, Ruler } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -388,19 +388,38 @@ export default function NewOrderPage() {
         </div>
 
         <div className="space-y-4">
-          <Card className="border-border/50 sticky top-24">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Box className="h-5 w-5 text-muted-foreground" />
-                3D Önizleme
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {fileUrl ? (
-                <div className="space-y-4">
+          <div className="sticky top-24">
+            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-2xl shadow-primary/10">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/20 via-transparent to-transparent opacity-60" />
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+              
+              <div className="relative p-4 border-b border-white/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+                        <Box className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-slate-900 animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white">3D Önizleme</h3>
+                      <p className="text-xs text-white/50">Gerçek zamanlı görüntüleme</p>
+                    </div>
+                  </div>
+                  {selectedFile && (
+                    <div className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/10">
+                      <span className="text-xs font-medium text-white/70">{selectedFile.name}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="relative">
+                {fileUrl ? (
                   <STLViewer 
                     url={fileUrl} 
-                    className="h-[400px]" 
+                    className="h-[420px]" 
                     color={printSettings.color === "Kırmızı" ? "#ef4444" : 
                            printSettings.color === "Mavi" ? "#3b82f6" : 
                            printSettings.color === "Yeşil" ? "#22c55e" : 
@@ -412,42 +431,85 @@ export default function NewOrderPage() {
                            "#3b82f6"}
                     onModelLoad={handleModelLoad}
                   />
-                  
-                  {modelInfo && (
-                    <div className="grid grid-cols-3 gap-4 p-4 rounded-lg bg-muted/50">
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-foreground">
+                ) : (
+                  <div className="h-[420px] flex items-center justify-center">
+                    <div className="text-center px-8">
+                      <div className="relative mb-6">
+                        <div className="w-24 h-24 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm">
+                          <Box className="h-10 w-10 text-white/30" />
+                        </div>
+                        <div className="absolute -top-2 -right-2 w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center animate-bounce">
+                          <Upload className="h-4 w-4 text-primary" />
+                        </div>
+                      </div>
+                      <p className="text-white/60 font-medium mb-2">Model Bekleniyor</p>
+                      <p className="text-sm text-white/40 max-w-[200px] mx-auto">
+                        STL dosyanızı yükleyin, 3D önizleme burada görünecek
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {modelInfo && (
+                <div className="relative p-4 border-t border-white/10">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="group relative p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all duration-300">
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="relative">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center">
+                            <Layers className="h-3 w-3 text-primary" />
+                          </div>
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Hacim</span>
+                        </div>
+                        <p className="text-xl font-bold text-white">
                           {modelInfo.volume.toFixed(1)}
+                          <span className="text-sm font-normal text-white/50 ml-1">cm³</span>
                         </p>
-                        <p className="text-xs text-muted-foreground">cm³ Hacim</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-foreground">
-                          {modelInfo.boundingBox.x}×{modelInfo.boundingBox.y}×{modelInfo.boundingBox.z}
-                        </p>
-                        <p className="text-xs text-muted-foreground">mm Boyut</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-foreground">
-                          {(modelInfo.triangleCount / 1000).toFixed(1)}K
-                        </p>
-                        <p className="text-xs text-muted-foreground">Üçgen</p>
                       </div>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="h-[400px] bg-muted/30 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <Box className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">
-                      Dosya yüklendiğinde önizleme burada görünecek
-                    </p>
+                    
+                    <div className="group relative p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-secondary/30 transition-all duration-300">
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-secondary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="relative">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded-lg bg-secondary/20 flex items-center justify-center">
+                            <Ruler className="h-3 w-3 text-secondary" />
+                          </div>
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Boyut</span>
+                        </div>
+                        <p className="text-lg font-bold text-white leading-tight">
+                          {modelInfo.boundingBox.x}×{modelInfo.boundingBox.y}
+                          <br />
+                          <span className="text-white/70">×{modelInfo.boundingBox.z}</span>
+                          <span className="text-xs font-normal text-white/50 ml-1">mm</span>
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="group relative p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-accent/30 transition-all duration-300">
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="relative">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded-lg bg-accent/20 flex items-center justify-center">
+                            <Triangle className="h-3 w-3 text-accent" />
+                          </div>
+                          <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Üçgen</span>
+                        </div>
+                        <p className="text-xl font-bold text-white">
+                          {(modelInfo.triangleCount / 1000).toFixed(1)}
+                          <span className="text-sm font-normal text-white/50 ml-1">K</span>
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+
+              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+            </div>
+          </div>
         </div>
       </div>
     </div>

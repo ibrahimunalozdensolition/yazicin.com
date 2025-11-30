@@ -47,7 +47,11 @@ export default function AdminApplicationsPage() {
     try {
       await ProviderApplicationService.approve(app.id, user.uid)
       
-      await UserService.updateUserProfile(app.userId, { role: "provider" })
+      // Kullanıcı profilini güncelle (rol + telefon)
+      await UserService.updateUserProfile(app.userId, { 
+        role: "provider",
+        phoneNumber: app.phoneNumber 
+      })
       
       const providerRef = doc(db, "providers", app.userId)
       await updateDoc(providerRef, {
@@ -58,6 +62,8 @@ export default function AdminApplicationsPage() {
         await setDoc(providerRef, {
           userId: app.userId,
           businessName: app.businessName,
+          businessType: app.businessType,
+          bio: app.experience, // Deneyim bilgisini bio olarak kullan
           status: "approved",
           createdAt: serverTimestamp(),
           approvedAt: serverTimestamp(),
@@ -68,6 +74,13 @@ export default function AdminApplicationsPage() {
             district: app.district,
             fullAddress: app.address,
           },
+          // Yazıcı bilgisi - sonradan printers koleksiyonuna taşınacak
+          initialPrinter: {
+            brand: app.printerBrand,
+            model: app.printerModel,
+          },
+          printers: [], // Yazıcı ID'leri (printers koleksiyonu kullanılınca doldurulacak)
+          bankAccount: null, // İleriki fazda doldurulacak
         })
       })
       
