@@ -324,46 +324,46 @@ export default function ProviderApplicationPage() {
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background">
-        <div className="container mx-auto flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center px-4 py-16">
+      <div className="container mx-auto flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center px-4 py-16">
           <Card className="w-full max-w-md border-border/50 shadow-xl backdrop-blur-sm bg-card/80">
             <CardContent className="pt-10 pb-10">
               <div className="text-center space-y-6">
                 <div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-2xl ${config.bg} ${config.border} border-2`}>
                   <StatusIcon className={`h-10 w-10 ${config.text}`} />
-                </div>
+              </div>
                 <div className="space-y-2">
                   <h2 className="text-2xl font-bold text-foreground">Başvurunuz Mevcut</h2>
                   <p className="text-muted-foreground">
-                    Daha önce provider başvurusu yapmışsınız.
-                  </p>
-                </div>
+                  Daha önce provider başvurusu yapmışsınız.
+                </p>
+              </div>
                 <div className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold ${config.bg} ${config.text} ${config.border} border`}>
                   <StatusIcon className="h-4 w-4" />
                   {statusLabels[existingApplication.status as keyof typeof statusLabels]}
-                </div>
-                {existingApplication.status === "approved" && (
+              </div>
+              {existingApplication.status === "approved" && (
                   <Link href="/provider" className="block">
                     <Button className="w-full h-12 text-base font-medium gap-2 mt-4 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25">
                       <Sparkles className="h-4 w-4" />
                       Provider Paneline Git
                     </Button>
-                  </Link>
-                )}
-                {existingApplication.status === "rejected" && existingApplication.adminNote && (
+                </Link>
+              )}
+              {existingApplication.status === "rejected" && existingApplication.adminNote && (
                   <div className="text-left mt-6 p-5 rounded-xl bg-red-500/5 border border-red-500/20">
                     <p className="text-sm font-semibold text-foreground mb-2">Red Sebebi:</p>
                     <p className="text-sm text-muted-foreground">{existingApplication.adminNote}</p>
-                  </div>
-                )}
+                </div>
+              )}
                 <Link href="/" className="block pt-2">
                   <Button variant="ghost" className="w-full gap-2">
                     <ArrowLeft className="h-4 w-4" />
                     Ana Sayfaya Dön
                   </Button>
                 </Link>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
         </div>
       </div>
     )
@@ -372,19 +372,19 @@ export default function ProviderApplicationPage() {
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-emerald-500/5 via-background to-background">
-        <div className="container mx-auto flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center px-4 py-16">
+      <div className="container mx-auto flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center px-4 py-16">
           <Card className="w-full max-w-md border-emerald-500/20 shadow-xl backdrop-blur-sm bg-card/80">
             <CardContent className="pt-10 pb-10">
               <div className="text-center space-y-6">
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-500/10 border-2 border-emerald-500/20">
                   <CheckCircle className="h-10 w-10 text-emerald-500" />
-                </div>
+              </div>
                 <div className="space-y-2">
                   <h2 className="text-2xl font-bold text-foreground">Başvurunuz Alındı!</h2>
                   <p className="text-muted-foreground">
-                    Provider başvurunuz incelemeye alındı. En kısa sürede size dönüş yapacağız.
-                  </p>
-                </div>
+                  Provider başvurunuz incelemeye alındı. En kısa sürede size dönüş yapacağız.
+                </p>
+              </div>
                 <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 bg-emerald-500/10 rounded-full px-4 py-2">
                   <Clock className="h-4 w-4" />
                   Ortalama değerlendirme süresi: 24 saat
@@ -394,10 +394,10 @@ export default function ProviderApplicationPage() {
                     <ArrowLeft className="h-4 w-4" />
                     Ana Sayfaya Dön
                   </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
         </div>
       </div>
     )
@@ -411,27 +411,27 @@ export default function ProviderApplicationPage() {
       </div>
 
       <div className="container mx-auto px-4 py-8 max-w-2xl relative">
-        <Link 
-          href="/" 
+      <Link 
+        href="/" 
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-all duration-200 mb-8 group"
-        >
+      >
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-          Ana Sayfaya Dön
-        </Link>
+        Ana Sayfaya Dön
+      </Link>
 
         <div className="text-center mb-10">
           <Link href="/" className="inline-flex items-center justify-center mb-6">
             <div className="relative">
               <div className="absolute inset-0 bg-primary/20 rounded-2xl blur-xl" />
               <div className="relative bg-card border border-border/50 rounded-2xl p-3 shadow-lg">
-                <Image src="/logo.png" alt="Yazıcın.com" width={48} height={48} className="h-12 w-12" />
+          <Image src="/logo.png" alt="Yazıcın.com" width={48} height={48} className="h-12 w-12" />
               </div>
             </div>
-          </Link>
+        </Link>
           <h1 className="text-3xl font-bold text-foreground mb-3">Provider Başvurusu</h1>
           <p className="text-muted-foreground text-lg">
-            3D yazıcınızla gelir elde etmeye başlayın
-          </p>
+          3D yazıcınızla gelir elde etmeye başlayın
+        </p>
           <div className="flex items-center justify-center gap-6 mt-6 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-emerald-500" />
@@ -446,9 +446,9 @@ export default function ProviderApplicationPage() {
               Güvenli
             </div>
           </div>
-        </div>
+      </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <Card className="border-border/50 shadow-lg backdrop-blur-sm bg-card/80 overflow-hidden group hover:shadow-xl transition-all duration-300">
             <div className="h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
             <CardHeader className="pb-4">
@@ -456,12 +456,12 @@ export default function ProviderApplicationPage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
                   <User className="h-5 w-5 text-primary" />
                 </div>
-                Kişisel Bilgiler
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              Kişisel Bilgiler
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
                   <Label className="text-sm font-medium">Ad Soyad</Label>
                   <Input value={user?.displayName || ""} disabled className="h-11 bg-muted/30 border-border/50" />
                 </div>
@@ -472,22 +472,22 @@ export default function ProviderApplicationPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phoneNumber" className="text-sm font-medium">Telefon Numarası</Label>
-                <Input 
-                  id="phoneNumber" 
-                  placeholder="05XX XXX XX XX" 
-                  disabled={isLoading}
+              <Input 
+                id="phoneNumber" 
+                placeholder="05XX XXX XX XX" 
+                disabled={isLoading}
                   className="h-11 border-border/50 focus:border-primary/50 transition-colors"
-                  {...register("phoneNumber")}
-                />
-                {errors.phoneNumber && (
+                {...register("phoneNumber")}
+              />
+              {errors.phoneNumber && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
                     {errors.phoneNumber.message}
                   </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
           <Card className="border-border/50 shadow-lg backdrop-blur-sm bg-card/80 overflow-hidden group hover:shadow-xl transition-all duration-300">
             <div className="h-1 bg-gradient-to-r from-secondary/50 via-secondary to-secondary/50" />
@@ -496,47 +496,47 @@ export default function ProviderApplicationPage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10">
                   <Building className="h-5 w-5 text-secondary" />
                 </div>
-                İşletme Bilgileri
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
+              İşletme Bilgileri
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
                 <Label htmlFor="businessName" className="text-sm font-medium">İşletme / Atölye Adı</Label>
-                <Input 
-                  id="businessName" 
-                  placeholder="Örn: Ahmet'in 3D Atölyesi" 
-                  disabled={isLoading}
+              <Input 
+                id="businessName" 
+                placeholder="Örn: Ahmet'in 3D Atölyesi" 
+                disabled={isLoading}
                   className="h-11 border-border/50 focus:border-secondary/50 transition-colors"
-                  {...register("businessName")}
-                />
-                {errors.businessName && (
+                {...register("businessName")}
+              />
+              {errors.businessName && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
                     {errors.businessName.message}
                   </p>
-                )}
-              </div>
-              <div className="space-y-2">
+              )}
+            </div>
+            <div className="space-y-2">
                 <Label className="text-sm font-medium">İşletme Türü</Label>
-                <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                   <label className="relative flex items-center gap-3 p-4 rounded-xl border-2 border-border/50 cursor-pointer hover:border-secondary/50 hover:bg-secondary/5 transition-all duration-200 has-[:checked]:border-secondary has-[:checked]:bg-secondary/10">
                     <input type="radio" value="individual" {...register("businessType")} className="sr-only" />
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/10">
                       <User className="h-4 w-4 text-secondary" />
                     </div>
                     <span className="text-sm font-medium">Bireysel</span>
-                  </label>
+                </label>
                   <label className="relative flex items-center gap-3 p-4 rounded-xl border-2 border-border/50 cursor-pointer hover:border-secondary/50 hover:bg-secondary/5 transition-all duration-200 has-[:checked]:border-secondary has-[:checked]:bg-secondary/10">
                     <input type="radio" value="company" {...register("businessType")} className="sr-only" />
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/10">
                       <Building className="h-4 w-4 text-secondary" />
                     </div>
                     <span className="text-sm font-medium">Şirket</span>
-                  </label>
-                </div>
+                </label>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
 
           <Card className="border-border/50 shadow-lg backdrop-blur-sm bg-card/80 overflow-hidden group hover:shadow-xl transition-all duration-300">
             <div className="h-1 bg-gradient-to-r from-accent/50 via-accent to-accent/50" />
@@ -545,35 +545,35 @@ export default function ProviderApplicationPage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10">
                   <MapPin className="h-5 w-5 text-accent" />
                 </div>
-                Konum Bilgileri
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              Konum Bilgileri
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
                   <Label className="text-sm font-medium">İl</Label>
                   <Select 
                     value={selectedCity} 
                     onValueChange={handleCityChange}
-                    disabled={isLoading}
-                  >
+                  disabled={isLoading}
+                >
                     <SelectTrigger className="hover:border-accent/50 focus:border-accent/50">
                       <SelectValue placeholder="İl Seçiniz" />
                     </SelectTrigger>
                     <SelectContent>
-                      {cities.map((city) => (
+                  {cities.map((city) => (
                         <SelectItem key={city} value={city}>{city}</SelectItem>
-                      ))}
+                  ))}
                     </SelectContent>
                   </Select>
-                  {errors.city && (
+                {errors.city && (
                     <p className="text-xs text-destructive flex items-center gap-1">
                       <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
                       {errors.city.message}
                     </p>
-                  )}
-                </div>
-                <div className="space-y-2">
+                )}
+              </div>
+              <div className="space-y-2">
                   <Label className="text-sm font-medium">İlçe</Label>
                   <Controller
                     name="district"
@@ -594,34 +594,34 @@ export default function ProviderApplicationPage() {
                         </SelectContent>
                       </Select>
                     )}
-                  />
-                  {errors.district && (
+                />
+                {errors.district && (
                     <p className="text-xs text-destructive flex items-center gap-1">
                       <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
                       {errors.district.message}
                     </p>
-                  )}
-                </div>
+                )}
               </div>
-              <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
                 <Label htmlFor="address" className="text-sm font-medium">Açık Adres</Label>
-                <textarea 
-                  id="address"
-                  placeholder="Detaylı adres bilgisi"
-                  rows={3}
-                  disabled={isLoading}
+              <textarea 
+                id="address"
+                placeholder="Detaylı adres bilgisi"
+                rows={3}
+                disabled={isLoading}
                   className="flex w-full rounded-xl border-2 border-border/50 bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:border-accent/50 disabled:cursor-not-allowed disabled:opacity-50 resize-none transition-colors"
-                  {...register("address")}
-                />
-                {errors.address && (
+                {...register("address")}
+              />
+              {errors.address && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
                     {errors.address.message}
                   </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
           <Card className="border-border/50 shadow-lg backdrop-blur-sm bg-card/80 overflow-hidden group hover:shadow-xl transition-all duration-300">
             <div className="h-1 bg-gradient-to-r from-blue-500/50 via-blue-500 to-blue-500/50" />
@@ -630,38 +630,39 @@ export default function ProviderApplicationPage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
                   <Printer className="h-5 w-5 text-blue-500" />
                 </div>
-                Yazıcı Bilgileri
-              </CardTitle>
+              Yazıcı Bilgileri
+            </CardTitle>
               <CardDescription className="text-muted-foreground">
-                Sahip olduğunuz 3D yazıcı hakkında bilgi verin
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              Sahip olduğunuz 3D yazıcı hakkında bilgi verin
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
                   <Label className="text-sm font-medium">Yazıcı Markası</Label>
                   <Select 
                     value={selectedBrand} 
                     onValueChange={handleBrandChange}
-                    disabled={isLoading}
+                  disabled={isLoading}
                   >
                     <SelectTrigger className="hover:border-blue-500/50 focus:border-blue-500/50">
                       <SelectValue placeholder="Marka Seçiniz" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.keys(printerBrands).sort().map((brand) => (
+                      {Object.keys(printerBrands).filter(b => b !== "Diğer").sort().map((brand) => (
                         <SelectItem key={brand} value={brand}>{brand}</SelectItem>
                       ))}
+                      <SelectItem key="Diğer" value="Diğer">Diğer</SelectItem>
                     </SelectContent>
                   </Select>
-                  {errors.printerBrand && (
+                {errors.printerBrand && (
                     <p className="text-xs text-destructive flex items-center gap-1">
                       <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
                       {errors.printerBrand.message}
                     </p>
-                  )}
-                </div>
-                <div className="space-y-2">
+                )}
+              </div>
+              <div className="space-y-2">
                   <Label className="text-sm font-medium">Yazıcı Modeli</Label>
                   <Controller
                     name="printerModel"
@@ -682,43 +683,43 @@ export default function ProviderApplicationPage() {
                         </SelectContent>
                       </Select>
                     )}
-                  />
-                  {errors.printerModel && (
+                />
+                {errors.printerModel && (
                     <p className="text-xs text-destructive flex items-center gap-1">
                       <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
                       {errors.printerModel.message}
                     </p>
-                  )}
-                </div>
+                )}
               </div>
-              <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
                 <Label htmlFor="experience" className="text-sm font-medium">3D Baskı Deneyiminiz</Label>
-                <textarea 
-                  id="experience"
-                  placeholder="3D baskı konusundaki deneyiminizi kısaca anlatın..."
-                  rows={4}
-                  disabled={isLoading}
+              <textarea 
+                id="experience"
+                placeholder="3D baskı konusundaki deneyiminizi kısaca anlatın..."
+                rows={4}
+                disabled={isLoading}
                   className="flex w-full rounded-xl border-2 border-border/50 bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:border-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50 resize-none transition-colors"
-                  {...register("experience")}
-                />
-                {errors.experience && (
+                {...register("experience")}
+              />
+              {errors.experience && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
                     {errors.experience.message}
                   </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-          {error && (
+        {error && (
             <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4 text-sm text-destructive flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/20 shrink-0">
                 <span className="text-lg">!</span>
               </div>
-              {error}
-            </div>
-          )}
+            {error}
+          </div>
+        )}
 
           <Button 
             type="submit" 
@@ -733,15 +734,15 @@ export default function ProviderApplicationPage() {
             ) : (
               <>
                 <Sparkles className="h-5 w-5" />
-                Başvuruyu Gönder
+          Başvuruyu Gönder
               </>
             )}
-          </Button>
+        </Button>
 
           <p className="text-sm text-center text-muted-foreground pb-8">
-            Başvurunuz onaylandıktan sonra Provider paneline erişim sağlayabilirsiniz.
-          </p>
-        </form>
+          Başvurunuz onaylandıktan sonra Provider paneline erişim sağlayabilirsiniz.
+        </p>
+      </form>
       </div>
     </div>
   )
