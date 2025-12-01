@@ -7,16 +7,22 @@ import Image from "next/image"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, ArrowLeft, CheckCircle, Printer, Building, MapPin, User, Sparkles, Clock, BadgeCheck } from "lucide-react"
+import { Loader2, ArrowLeft, CheckCircle, Printer, Building, MapPin, User, Sparkles, Clock, BadgeCheck, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Combobox } from "@/components/ui/combobox"
 import { useAuth } from "@/contexts/AuthContext"
 import { ProviderApplicationService } from "@/lib/firebase/providerApplications"
 import { ilceler } from "@/lib/data/turkiye-ilce"
 import { printerBrands, getSortedBrands, getModelsByBrand } from "@/lib/data/printer-brands"
+
+const printerSchema = z.object({
+  brand: z.string().min(1, "Yazıcı markası seçiniz"),
+  model: z.string().min(1, "Yazıcı modeli seçiniz"),
+})
 
 const applicationSchema = z.object({
   phoneNumber: z.string().min(10, "Geçerli bir telefon numarası giriniz"),
@@ -25,11 +31,10 @@ const applicationSchema = z.object({
   city: z.string().min(1, "İl seçiniz"),
   district: z.string().min(1, "İlçe seçiniz"),
   address: z.string().min(10, "Adres en az 10 karakter olmalıdır"),
-  printerBrand: z.string().min(1, "Yazıcı markası seçiniz"),
-  printerModel: z.string().min(1, "Yazıcı modeli seçiniz"),
   experience: z.string().min(10, "Deneyiminizi en az 10 karakter ile açıklayınız"),
 })
 
+type PrinterInfo = z.infer<typeof printerSchema>
 type ApplicationFormValues = z.infer<typeof applicationSchema>
 
 const cities = [
@@ -51,11 +56,21 @@ export default function ProviderApplicationPage() {
   const [error, setError] = useState<string | null>(null)
   const [existingApplication, setExistingApplication] = useState<any>(null)
   const [checkingApplication, setCheckingApplication] = useState(true)
-  const [selectedBrand, setSelectedBrand] = useState<string>("")
-  const [availableModels, setAvailableModels] = useState<string[]>([])
+  const [printers, setPrinters] = useState<Array<{ quantity: number; brand: string; model: string; availableModels: string[] }>>([
+    { quantity: 1, brand: "", model: "", availableModels: [] }
+  ])
   const [selectedCity, setSelectedCity] = useState<string>("")
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([])
 
+  const formatPhoneNumber = (value: string) => {
+    const numbers = value.replace(/\D/g, "")
+    if (numbers.length === 0) return ""
+    if (numbers.length <= 1) return numbers
+    if (numbers.length <= 4) return `${numbers[0]} (${numbers.slice(1)}`
+    if (numbers.length <= 7) return `${numbers[0]} (${numbers.slice(1, 4)}) ${numbers.slice(4)}`
+    if (numbers.length <= 9) return `${numbers[0]} (${numbers.slice(1, 4)}) ${numbers.slice(4, 7)} ${numbers.slice(7)}`
+    return `${numbers[0]} (${numbers.slice(1, 4)}) ${numbers.slice(4, 7)} ${numbers.slice(7, 9)} ${numbers.slice(9, 11)}`
+  }
 
   const {
     register,
@@ -70,11 +85,38 @@ export default function ProviderApplicationPage() {
     },
   })
 
-  const handleBrandChange = (brand: string) => {
-    setSelectedBrand(brand)
-    setValue("printerBrand", brand)
-    setValue("printerModel", "")
-    setAvailableModels(getModelsByBrand(brand))
+  const handlePrinterQuantityChange = (index: number, quantity: number) => {
+    const newPrinters = [...printers]
+    newPrinters[index].quantity = quantity
+    setPrinters(newPrinters)
+  }
+
+  const handlePrinterBrandChange = (index: number, brand: string) => {
+    const newPrinters = [...printers]
+    newPrinters[index] = {
+      quantity: newPrinters[index].quantity,
+      brand,
+      model: "",
+      availableModels: getModelsByBrand(brand)
+    }
+    setPrinters(newPrinters)
+  }
+
+  const handlePrinterModelChange = (index: number, model: string) => {
+    const newPrinters = [...printers]
+    newPrinters[index].model = model
+    setPrinters(newPrinters)
+  }
+
+  const addPrinter = () => {
+    setPrinters([...printers, { quantity: 1, brand: "", model: "", availableModels: [] }])
+  }
+
+  const removePrinter = (index: number) => {
+    if (printers.length > 1) {
+      const newPrinters = printers.filter((_, i) => i !== index)
+      setPrinters(newPrinters)
+    }
   }
 
   const handleCityChange = (city: string) => {
@@ -105,12 +147,21 @@ export default function ProviderApplicationPage() {
 
   const onSubmit = async (data: ApplicationFormValues) => {
     if (!user) return
+
+    const validPrinters = printers.filter(p => p.brand && p.model)
+    if (validPrinters.length === 0) {
+      setError("En az bir yazıcı eklemelisiniz.")
+      return
+    }
     
     setIsLoading(true)
     setError(null)
     try {
       await ProviderApplicationService.submit({
         ...data,
+        printerBrand: validPrinters[0].brand,
+        printerModel: validPrinters[0].model,
+        printers: validPrinters.map(p => ({ quantity: p.quantity, brand: p.brand, model: p.model })),
         userId: user.uid,
         email: user.email || "",
         displayName: user.displayName || "",
@@ -203,17 +254,36 @@ export default function ProviderApplicationPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-emerald-500/5 via-background to-background">
       <div className="container mx-auto flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center px-4 py-16">
-          <Card className="w-full max-w-md border-emerald-500/20 shadow-xl backdrop-blur-sm bg-card/80">
+          <Card className="w-full max-w-lg border-emerald-500/20 shadow-xl backdrop-blur-sm bg-card/80">
             <CardContent className="pt-10 pb-10">
               <div className="text-center space-y-6">
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-500/10 border-2 border-emerald-500/20">
                   <CheckCircle className="h-10 w-10 text-emerald-500" />
               </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <h2 className="text-2xl font-bold text-foreground">Başvurunuz Alındı!</h2>
                   <p className="text-muted-foreground">
-                  Provider başvurunuz incelemeye alındı. En kısa sürede size dönüş yapacağız.
-                </p>
+                    Provider başvurunuz başarıyla gönderildi.
+                  </p>
+                </div>
+                <div className="text-left space-y-3 p-4 rounded-xl bg-muted/30 border border-border/50">
+                  <p className="text-sm text-foreground">
+                    <strong>Sonraki Adımlar:</strong>
+                  </p>
+                  <ul className="text-sm text-muted-foreground space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-500 mt-1">•</span>
+                      Süpervizörlerimiz başvurunuzu değerlendirecek
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-500 mt-1">•</span>
+                      Başvurunuz onaylandığında e-posta ile bilgilendirileceksiniz
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-500 mt-1">•</span>
+                      Onay aldıktan sonra Provider panelinize erişim sağlayabileceksiniz
+                    </li>
+                  </ul>
               </div>
                 <div className="flex items-center justify-center gap-2 text-sm text-emerald-600 bg-emerald-500/10 rounded-full px-4 py-2">
                   <Clock className="h-4 w-4" />
@@ -302,13 +372,23 @@ export default function ProviderApplicationPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phoneNumber" className="text-sm font-medium">Telefon Numarası</Label>
-              <Input 
-                id="phoneNumber" 
-                placeholder="05XX XXX XX XX" 
-                disabled={isLoading}
-                  className="h-11 border-border/50 focus:border-primary/50 transition-colors"
-                {...register("phoneNumber")}
-              />
+                <Controller
+                  name="phoneNumber"
+                  control={control}
+                  render={({ field }) => (
+                    <Input 
+                      id="phoneNumber" 
+                      placeholder="0 (5XX) XXX XX XX" 
+                      disabled={isLoading}
+                      className="h-11 border-border/50 focus:border-primary/50 transition-colors"
+                      value={formatPhoneNumber(field.value || "")}
+                      onChange={(e) => {
+                        const formatted = formatPhoneNumber(e.target.value)
+                        field.onChange(formatted)
+                      }}
+                    />
+                  )}
+                />
               {errors.phoneNumber && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
@@ -463,64 +543,78 @@ export default function ProviderApplicationPage() {
               Yazıcı Bilgileri
             </CardTitle>
               <CardDescription className="text-muted-foreground">
-              Sahip olduğunuz 3D yazıcı hakkında bilgi verin
+              Sahip olduğunuz 3D yazıcılar hakkında bilgi verin
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                  <Label className="text-sm font-medium">Yazıcı Markası</Label>
-                  <Select 
-                    value={selectedBrand} 
-                    onValueChange={handleBrandChange}
-                  disabled={isLoading}
-                  >
-                    <SelectTrigger className="hover:border-blue-500/50 focus:border-blue-500/50">
-                      <SelectValue placeholder="Marka Seçiniz" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getSortedBrands().map((brand) => (
-                        <SelectItem key={brand} value={brand}>{brand}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                {errors.printerBrand && (
-                    <p className="text-xs text-destructive flex items-center gap-1">
-                      <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
-                      {errors.printerBrand.message}
-                    </p>
-                )}
+            {printers.map((printer, index) => (
+              <div key={index} className="space-y-4 p-4 rounded-xl border border-border/50 bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Yazıcı {index + 1}</span>
+                  {printers.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removePrinter(index)}
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-[80px_1fr_1fr] sm:grid-cols-[100px_1fr_1fr] gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Sayısı</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={printer.quantity}
+                      onChange={(e) => handlePrinterQuantityChange(index, Math.max(1, parseInt(e.target.value) || 1))}
+                      disabled={isLoading}
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Yazıcı Markası</Label>
+                    <Combobox
+                      options={getSortedBrands()}
+                      value={printer.brand}
+                      onValueChange={(brand) => handlePrinterBrandChange(index, brand)}
+                      placeholder="Marka Seçiniz"
+                      searchPlaceholder="Marka ara..."
+                      emptyText="Marka bulunamadı."
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Yazıcı Modeli</Label>
+                    <Combobox
+                      options={printer.availableModels}
+                      value={printer.model}
+                      onValueChange={(model) => handlePrinterModelChange(index, model)}
+                      placeholder={printer.brand ? "Model Seçiniz" : "Önce marka seçiniz"}
+                      searchPlaceholder="Model ara..."
+                      emptyText="Model bulunamadı."
+                      disabled={isLoading || !printer.brand}
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                  <Label className="text-sm font-medium">Yazıcı Modeli</Label>
-                  <Controller
-                    name="printerModel"
-                    control={control}
-                    render={({ field }) => (
-                      <Select 
-                        value={field.value} 
-                        onValueChange={field.onChange}
-                        disabled={isLoading || !selectedBrand}
-                      >
-                        <SelectTrigger className="hover:border-blue-500/50 focus:border-blue-500/50">
-                          <SelectValue placeholder={selectedBrand ? "Model Seçiniz" : "Önce marka seçiniz"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableModels.map((model) => (
-                            <SelectItem key={model} value={model}>{model}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                />
-                {errors.printerModel && (
-                    <p className="text-xs text-destructive flex items-center gap-1">
-                      <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
-                      {errors.printerModel.message}
-                    </p>
-                )}
-              </div>
-            </div>
+            ))}
+            
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addPrinter}
+              disabled={isLoading}
+              className="w-full border-dashed border-2 hover:border-blue-500/50 hover:bg-blue-500/5"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Ekstra Yazıcı Ekle
+            </Button>
+
             <div className="space-y-2">
                 <Label htmlFor="experience" className="text-sm font-medium">3D Baskı Deneyiminiz</Label>
               <textarea 

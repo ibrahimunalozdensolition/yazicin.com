@@ -24,10 +24,16 @@ export default function ProviderPrintersPage() {
     if (!user) return
     setLoading(true)
     try {
+      console.log("Fetching printers for user.uid:", user.uid)
       const data = await PrinterService.getByProviderId(user.uid)
+      console.log("Printers found:", data)
+      
+      const allPrinters = await PrinterService.getAll()
+      console.log("All printers in database:", allPrinters)
+      
       setPrinters(data)
     } catch (error) {
-      console.error(error)
+      console.error("Error fetching printers:", error)
     } finally {
       setLoading(false)
     }

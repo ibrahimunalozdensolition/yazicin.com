@@ -50,27 +50,27 @@ export const PrinterService = {
   getByProviderId: async (providerId: string): Promise<Printer[]> => {
     const q = query(
       collection(db, "printers"),
-      where("providerId", "==", providerId),
-      orderBy("createdAt", "desc")
+      where("providerId", "==", providerId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
+    const printers = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Printer[];
+    return printers.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds);
   },
 
   getActive: async (): Promise<Printer[]> => {
     const q = query(
       collection(db, "printers"),
-      where("status", "==", "active"),
-      orderBy("createdAt", "desc")
+      where("status", "==", "active")
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
+    const printers = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Printer[];
+    return printers.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds);
   },
 
   getAll: async (): Promise<Printer[]> => {

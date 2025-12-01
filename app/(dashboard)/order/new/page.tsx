@@ -4,15 +4,19 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { ArrowLeft, Loader2, Upload, Box, Palette, Settings, CheckCircle, Layers, Triangle, Ruler } from "lucide-react"
+import { ArrowLeft, Loader2, Upload, Box, Settings, CheckCircle, Layers, Triangle, Ruler, MapPin, Star, Printer, CreditCard, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/contexts/AuthContext"
 import FileUploader from "@/components/3d/FileUploader"
-import { StorageService, formatFileSize, UploadProgress } from "@/lib/firebase/storage"
-import { MATERIALS, COLORS } from "@/lib/firebase/printers"
+import { StorageService, UploadProgress } from "@/lib/firebase/storage"
+import { MATERIALS, COLORS, PrinterService, Printer as PrinterType } from "@/lib/firebase/printers"
+import { OrderService } from "@/lib/firebase/orders"
+import { UserService } from "@/lib/firebase/users"
+import { collection, getDocs, query, where } from "firebase/firestore"
+import { db } from "@/lib/firebase/config"
 
 const STLViewer = dynamic(() => import("@/components/3d/STLViewer"), {
   ssr: false,
@@ -29,6 +33,26 @@ interface ModelInfo {
   triangleCount: number
 }
 
+interface ProviderWithPrinter {
+  providerId: string
+  providerName: string
+  printer: PrinterType
+  city: string
+  district: string
+  rating: number
+  completedOrders: number
+  estimatedPrice: number
+}
+
+interface Address {
+  id: string
+  title: string
+  city: string
+  district: string
+  fullAddress: string
+  isDefault: boolean
+}
+
 export default function NewOrderPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -36,7 +60,6 @@ export default function NewOrderPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null)
-  const [uploadedFilePath, setUploadedFilePath] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
   const [isUploading, setIsUploading] = useState(false)
   const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null)
@@ -47,6 +70,15 @@ export default function NewOrderPage() {
     quality: "standard",
     quantity: 1,
   })
+  const [providers, setProviders] = useState<ProviderWithPrinter[]>([])
+  const [selectedProvider, setSelectedProvider] = useState<ProviderWithPrinter | null>(null)
+  const [loadingProviders, setLoadingProviders] = useState(false)
+  const [addresses, setAddresses] = useState<Address[]>([])
+  const [selectedAddress, setSelectedAddress] = useState<Address | null>(null)
+  const [loadingAddresses, setLoadingAddresses] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [orderSuccess, setOrderSuccess] = useState(false)
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -61,6 +93,80 @@ export default function NewOrderPage() {
       }
     }
   }, [previewUrl])
+
+  useEffect(() => {
+    if (step === 3 && printSettings.material) {
+      fetchProviders()
+    }
+  }, [step, printSettings.material])
+
+  useEffect(() => {
+    if (step === 4 && user) {
+      fetchAddresses()
+    }
+  }, [step, user])
+
+  const fetchProviders = async () => {
+    setLoadingProviders(true)
+    try {
+      const activePrinters = await PrinterService.getActive()
+      
+      const providersMap = new Map<string, ProviderWithPrinter>()
+      
+      for (const printer of activePrinters) {
+        if (!providersMap.has(printer.providerId)) {
+          const providerDoc = await getDocs(query(
+            collection(db, "providers"),
+            where("userId", "==", printer.providerId)
+          ))
+          
+          if (!providerDoc.empty) {
+            const providerData = providerDoc.docs[0].data()
+            const basePrice = modelInfo ? modelInfo.volume * 0.5 : 50
+            const qualityMultiplier = printSettings.quality === "high" ? 1.5 : printSettings.quality === "draft" ? 0.8 : 1
+            const estimatedPrice = Math.round(basePrice * qualityMultiplier * printSettings.quantity)
+            
+            providersMap.set(printer.providerId, {
+              providerId: printer.providerId,
+              providerName: providerData.businessName || "Provider",
+              printer: printer,
+              city: providerData.address?.city || "",
+              district: providerData.address?.district || "",
+              rating: providerData.rating || 0,
+              completedOrders: providerData.completedOrders || 0,
+              estimatedPrice,
+            })
+          }
+        }
+      }
+      
+      setProviders(Array.from(providersMap.values()))
+    } catch (error) {
+      console.error("Error fetching providers:", error)
+    } finally {
+      setLoadingProviders(false)
+    }
+  }
+
+  const fetchAddresses = async () => {
+    if (!user) return
+    setLoadingAddresses(true)
+    try {
+      const q = query(collection(db, "addresses"), where("userId", "==", user.uid))
+      const snapshot = await getDocs(q)
+      const addressList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Address[]
+      setAddresses(addressList)
+      const defaultAddr = addressList.find(a => a.isDefault)
+      if (defaultAddr) setSelectedAddress(defaultAddr)
+    } catch (error) {
+      console.error("Error fetching addresses:", error)
+    } finally {
+      setLoadingAddresses(false)
+    }
+  }
 
   const handleFileSelect = (file: File) => {
     if (previewUrl) {
@@ -78,7 +184,6 @@ export default function NewOrderPage() {
     setSelectedFile(null)
     setPreviewUrl(null)
     setUploadedFileUrl(null)
-    setUploadedFilePath(null)
     setModelInfo(null)
   }
 
@@ -94,7 +199,6 @@ export default function NewOrderPage() {
         }
       )
       setUploadedFileUrl(result.url)
-      setUploadedFilePath(result.path)
       setStep(2)
     } catch (error) {
       console.error(error)
@@ -108,6 +212,48 @@ export default function NewOrderPage() {
     setModelInfo(info)
   }
 
+  const handleCreateOrder = async () => {
+    if (!user || !selectedFile || !selectedProvider || !selectedAddress || !uploadedFileUrl) return
+    
+    setIsSubmitting(true)
+    try {
+      const userProfile = await UserService.getUserProfile(user.uid)
+      
+      const orderId = await OrderService.create({
+        customerId: user.uid,
+        customerName: userProfile?.displayName || user.displayName || "",
+        customerEmail: user.email || "",
+        providerId: selectedProvider.providerId,
+        providerName: selectedProvider.providerName,
+        printerId: selectedProvider.printer.id || "",
+        printerName: `${selectedProvider.printer.brand} ${selectedProvider.printer.model}`,
+        fileName: selectedFile.name,
+        fileUrl: uploadedFileUrl,
+        fileSize: selectedFile.size,
+        printSettings: {
+          material: printSettings.material,
+          color: printSettings.color,
+          infill: printSettings.infill,
+          quality: printSettings.quality as "draft" | "normal" | "fine",
+          quantity: printSettings.quantity,
+        },
+        price: selectedProvider.estimatedPrice,
+        shippingAddress: {
+          city: selectedAddress.city,
+          district: selectedAddress.district,
+          fullAddress: selectedAddress.fullAddress,
+        },
+      })
+      
+      setCreatedOrderId(orderId)
+      setOrderSuccess(true)
+    } catch (error) {
+      console.error("Error creating order:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const qualityOptions = [
     { value: "draft", label: "Taslak", description: "0.3mm - Hızlı baskı" },
     { value: "standard", label: "Standart", description: "0.2mm - Dengeli" },
@@ -118,6 +264,52 @@ export default function NewOrderPage() {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (orderSuccess) {
+    return (
+      <div className="container mx-auto px-4 md:px-6 py-8">
+        <div className="max-w-lg mx-auto">
+          <Card className="border-green-500/50 bg-green-500/5">
+            <CardContent className="py-12">
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-500/10 mb-6">
+                  <CheckCircle className="h-10 w-10 text-green-500" />
+                </div>
+                <h1 className="text-2xl font-bold text-foreground mb-3">Siparişiniz Oluşturuldu!</h1>
+                <p className="text-muted-foreground mb-6">
+                  Siparişiniz provider'a iletildi. Onay aldıktan sonra üretim sürecine başlanacak.
+                </p>
+                <div className="w-full space-y-3 mb-6">
+                  <div className="p-4 rounded-lg bg-muted/50 text-left">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-muted-foreground">Sipariş No</span>
+                      <span className="font-mono font-medium">#{createdOrderId?.slice(0, 8)}</span>
+                    </div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-muted-foreground">Provider</span>
+                      <span className="font-medium">{selectedProvider?.providerName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tutar</span>
+                      <span className="font-bold text-primary">₺{selectedProvider?.estimatedPrice}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3 w-full">
+                  <Link href="/customer" className="flex-1">
+                    <Button variant="outline" className="w-full">Panele Dön</Button>
+                  </Link>
+                  <Link href={`/customer/orders/${createdOrderId}`} className="flex-1">
+                    <Button className="w-full">Siparişi Takip Et</Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
@@ -324,7 +516,7 @@ export default function NewOrderPage() {
             <Card className="border-border/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Palette className="h-5 w-5 text-muted-foreground" />
+                  <Printer className="h-5 w-5 text-muted-foreground" />
                   Adım 3: Yazıcı Seçimi
                 </CardTitle>
                 <CardDescription>
@@ -332,16 +524,70 @@ export default function NewOrderPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">
-                    Yazıcı listesi yakında eklenecek...
-                  </p>
-                </div>
-                <div className="flex gap-4">
+                {loadingProviders ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : providers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Printer className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground mb-2">Uygun yazıcı bulunamadı</p>
+                    <p className="text-sm text-muted-foreground">Farklı baskı ayarları deneyin</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {providers.map((provider) => (
+                      <button
+                        key={provider.providerId}
+                        type="button"
+                        onClick={() => setSelectedProvider(provider)}
+                        className={`w-full p-4 rounded-xl border text-left transition-all ${
+                          selectedProvider?.providerId === provider.providerId
+                            ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
+                            : "border-border hover:border-primary/50 hover:bg-muted/50"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h3 className="font-semibold text-foreground">{provider.providerName}</h3>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {provider.city}, {provider.district}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xl font-bold text-primary">₺{provider.estimatedPrice}</p>
+                            <p className="text-xs text-muted-foreground">Tahmini</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                            <span className="font-medium">{Number(provider.rating).toFixed(1)}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <CheckCircle className="h-4 w-4" />
+                            <span>{provider.completedOrders} sipariş</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Printer className="h-4 w-4" />
+                            <span>{provider.printer.brand} {provider.printer.model}</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-4 pt-4">
                   <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
                     Geri
                   </Button>
-                  <Button onClick={() => setStep(4)} className="flex-1">
+                  <Button 
+                    onClick={() => setStep(4)} 
+                    disabled={!selectedProvider}
+                    className="flex-1"
+                  >
                     Devam Et
                   </Button>
                 </div>
@@ -357,11 +603,12 @@ export default function NewOrderPage() {
                   Adım 4: Özet ve Onay
                 </CardTitle>
                 <CardDescription>
-                  Sipariş detaylarınızı kontrol edin
+                  Sipariş detaylarınızı kontrol edin ve teslimat adresini seçin
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="space-y-3 p-4 rounded-lg bg-muted/50">
+                  <h4 className="font-medium text-foreground mb-3">Sipariş Özeti</h4>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Dosya</span>
                     <span className="font-medium">{selectedFile?.name}</span>
@@ -388,14 +635,91 @@ export default function NewOrderPage() {
                     <span className="text-muted-foreground">Adet</span>
                     <span className="font-medium">{printSettings.quantity}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Provider</span>
+                    <span className="font-medium">{selectedProvider?.providerName}</span>
+                  </div>
+                  <div className="border-t border-border pt-3 mt-3">
+                    <div className="flex justify-between">
+                      <span className="font-medium text-foreground">Toplam</span>
+                      <span className="text-xl font-bold text-primary">₺{selectedProvider?.estimatedPrice}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Teslimat Adresi
+                  </Label>
+                  {loadingAddresses ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : addresses.length === 0 ? (
+                    <div className="p-4 rounded-lg border border-dashed border-border text-center">
+                      <p className="text-muted-foreground mb-2">Kayıtlı adres bulunamadı</p>
+                      <Link href="/customer/addresses">
+                        <Button variant="outline" size="sm">Adres Ekle</Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {addresses.map((address) => (
+                        <button
+                          key={address.id}
+                          type="button"
+                          onClick={() => setSelectedAddress(address)}
+                          className={`w-full p-3 rounded-lg border text-left transition-colors ${
+                            selectedAddress?.id === address.id
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">{address.title}</span>
+                            {address.isDefault && (
+                              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Varsayılan</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {address.fullAddress}, {address.district}/{address.city}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <div className="flex items-start gap-3">
+                    <CreditCard className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-600">Ödeme Bilgisi</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Ödeme sistemi yakında aktif olacak. Şu an siparişler onay sonrası işleme alınacaktır.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-4">
                   <Button variant="outline" onClick={() => setStep(3)} className="flex-1">
                     Geri
                   </Button>
-                  <Button className="flex-1">
-                    Siparişi Oluştur
+                  <Button 
+                    onClick={handleCreateOrder}
+                    disabled={!selectedAddress || isSubmitting}
+                    className="flex-1"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Oluşturuluyor...
+                      </>
+                    ) : (
+                      "Siparişi Oluştur"
+                    )}
                   </Button>
                 </div>
               </CardContent>
@@ -531,4 +855,3 @@ export default function NewOrderPage() {
     </div>
   )
 }
-

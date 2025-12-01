@@ -1,14 +1,66 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Plus, Package, Clock, ShoppingBag, ArrowRight, FileUp } from "lucide-react"
+import { Plus, Package, Clock, ShoppingBag, ArrowRight, FileUp, Loader2, CheckCircle, Truck, MessageSquare } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
+import { OrderService, Order, OrderStatus } from "@/lib/firebase/orders"
+
+const statusConfig: Record<OrderStatus, { label: string; color: string; icon: any }> = {
+  pending: { label: "Onay Bekliyor", color: "text-amber-500 bg-amber-500/10", icon: Clock },
+  accepted: { label: "Onaylandı", color: "text-blue-500 bg-blue-500/10", icon: CheckCircle },
+  in_production: { label: "Üretimde", color: "text-purple-500 bg-purple-500/10", icon: Package },
+  shipped: { label: "Kargoda", color: "text-cyan-500 bg-cyan-500/10", icon: Truck },
+  delivered: { label: "Teslim Edildi", color: "text-green-500 bg-green-500/10", icon: CheckCircle },
+  cancelled: { label: "İptal", color: "text-red-500 bg-red-500/10", icon: Clock },
+}
 
 export default function CustomerDashboard() {
+  const { user } = useAuth()
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({ total: 0, active: 0, completed: 0 })
+
+  useEffect(() => {
+    if (user) {
+      fetchOrders()
+    }
+  }, [user])
+
+  const fetchOrders = async () => {
+    if (!user) return
+    setLoading(true)
+    try {
+      const data = await OrderService.getByCustomerId(user.uid)
+      setOrders(data)
+      
+      const active = data.filter(o => ["pending", "accepted", "in_production", "shipped"].includes(o.status)).length
+      const completed = data.filter(o => o.status === "delivered").length
+      
+      setStats({
+        total: data.length,
+        active,
+        completed
+      })
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return "-"
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+    return date.toLocaleDateString("tr-TR", { day: "numeric", month: "short" })
+  }
+
+  const recentOrders = orders.slice(0, 5)
+
   return (
     <div className="container mx-auto px-4 md:px-6 py-8">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Hoş Geldiniz!</h1>
@@ -22,7 +74,6 @@ export default function CustomerDashboard() {
         </Link>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3 mb-8">
         <Card className="border-border/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -30,10 +81,8 @@ export default function CustomerDashboard() {
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">0</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Tüm zamanlar
-            </p>
+            <div className="text-3xl font-bold text-foreground">{stats.total}</div>
+            <p className="text-xs text-muted-foreground mt-1">Tüm zamanlar</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
@@ -42,10 +91,8 @@ export default function CustomerDashboard() {
             <Clock className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">0</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              İşlemde olan
-            </p>
+            <div className="text-3xl font-bold text-foreground">{stats.active}</div>
+            <p className="text-xs text-muted-foreground mt-1">İşlemde olan</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
@@ -54,17 +101,13 @@ export default function CustomerDashboard() {
             <Package className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">0</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Teslim alınan
-            </p>
+            <div className="text-3xl font-bold text-foreground">{stats.completed}</div>
+            <p className="text-xs text-muted-foreground mt-1">Teslim alınan</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Content */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Orders List */}
         <Card className="lg:col-span-2 border-border/50">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Son Siparişler</CardTitle>
@@ -73,25 +116,58 @@ export default function CustomerDashboard() {
             </Link>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
-                <ShoppingBag className="h-8 w-8 text-muted-foreground" />
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">Henüz siparişiniz yok</h3>
-              <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-                İlk siparişinizi oluşturmak için STL dosyanızı yükleyin ve en uygun yazıcıyı bulun.
-              </p>
-              <Link href="/order/new">
-                <Button className="gap-2">
-                  <FileUp className="h-4 w-4" />
-                  Sipariş Oluştur
-                </Button>
-              </Link>
-            </div>
+            ) : recentOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+                  <ShoppingBag className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium text-foreground mb-2">Henüz siparişiniz yok</h3>
+                <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+                  İlk siparişinizi oluşturmak için STL dosyanızı yükleyin ve en uygun yazıcıyı bulun.
+                </p>
+                <Link href="/order/new">
+                  <Button className="gap-2">
+                    <FileUp className="h-4 w-4" />
+                    Sipariş Oluştur
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentOrders.map((order) => {
+                  const status = statusConfig[order.status]
+                  const StatusIcon = status.icon
+                  return (
+                    <Link key={order.id} href={`/customer/orders/${order.id}`} className="block">
+                      <div className="flex items-center justify-between p-4 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-xs text-muted-foreground">#{order.id?.slice(0, 8)}</span>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
+                              <StatusIcon className="h-3 w-3" />
+                              {status.label}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-foreground">{order.fileName}</p>
+                          <p className="text-xs text-muted-foreground">{order.providerName}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-primary">₺{order.price}</p>
+                          <p className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Quick Actions */}
         <Card className="border-border/50">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Hızlı İşlemler</CardTitle>
@@ -111,15 +187,15 @@ export default function CustomerDashboard() {
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
             </Link>
-            <Link href="/customer/addresses" className="block">
+            <Link href="/customer/orders" className="block">
               <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10">
                     <Package className="h-5 w-5 text-secondary" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">Adreslerim</p>
-                    <p className="text-xs text-muted-foreground">Teslimat adresleri</p>
+                    <p className="text-sm font-medium text-foreground">Siparişlerim</p>
+                    <p className="text-xs text-muted-foreground">Tüm siparişler</p>
                   </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />

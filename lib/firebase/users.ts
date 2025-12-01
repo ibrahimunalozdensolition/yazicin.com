@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./config";
 import { User } from "firebase/auth";
 
@@ -14,12 +14,11 @@ export interface UserProfile {
   createdAt: any;
   updatedAt: any;
   isEmailVerified: boolean;
-  verifiedByAdmin: boolean; // Admin onayı durumu
-  providerId?: string; // Eğer provider ise providers koleksiyonundaki ID
+  verifiedByAdmin: boolean;
+  providerId?: string;
 }
 
 export const UserService = {
-  // Kullanıcı profili oluşturma
   createUserProfile: async (user: User, additionalData: { role: UserRole }) => {
     if (!user) return;
 
@@ -36,7 +35,7 @@ export const UserService = {
         displayName: displayName || "",
         role: additionalData.role,
         isEmailVerified: emailVerified || false,
-        verifiedByAdmin: false, // Admin onayı bekliyor
+        verifiedByAdmin: false,
         createdAt,
         updatedAt: createdAt,
       };
@@ -51,12 +50,11 @@ export const UserService = {
       try {
         await setDoc(userRef, newProfile);
         
-        // Eğer provider ise providers koleksiyonunda da doküman oluşturabiliriz (başlangıç taslağı)
         if (additionalData.role === "provider") {
-            const providerRef = doc(db, "providers", user.uid); // Provider ID olarak User ID kullanabiliriz
+            const providerRef = doc(db, "providers", user.uid);
             await setDoc(providerRef, {
                 userId: user.uid,
-                businessName: displayName || "", // Başlangıçta isim
+                businessName: displayName || "",
                 status: "pending",
                 createdAt: serverTimestamp(),
                 completedOrders: 0,
@@ -70,7 +68,6 @@ export const UserService = {
     }
   },
 
-  // Kullanıcı profili getirme
   getUserProfile: async (uid: string): Promise<UserProfile | null> => {
     const userRef = doc(db, "users", uid);
     const userSnap = await getDoc(userRef);
@@ -81,12 +78,42 @@ export const UserService = {
     return null;
   },
 
-  // Profil güncelleme
   updateUserProfile: async (uid: string, data: Partial<UserProfile>) => {
     const userRef = doc(db, "users", uid);
-    await updateDoc(userRef, {
+    await setDoc(userRef, {
       ...data,
       updatedAt: serverTimestamp(),
-    });
+    }, { merge: true });
+  },
+
+  ensureUserProfile: async (user: User, role: UserRole = "customer") => {
+    if (!user) return null;
+
+    const userRef = doc(db, "users", user.uid);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      const { email, displayName, photoURL, phoneNumber, emailVerified } = user;
+      const createdAt = serverTimestamp();
+
+      const newProfile: Record<string, any> = {
+        uid: user.uid,
+        email: email || "",
+        displayName: displayName || "",
+        role,
+        isEmailVerified: emailVerified || false,
+        verifiedByAdmin: false,
+        createdAt,
+        updatedAt: createdAt,
+      };
+
+      if (photoURL) newProfile.photoURL = photoURL;
+      if (phoneNumber) newProfile.phoneNumber = phoneNumber;
+
+      await setDoc(userRef, newProfile);
+      return newProfile as UserProfile;
+    }
+
+    return userSnap.data() as UserProfile;
   }
 };

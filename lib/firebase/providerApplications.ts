@@ -3,6 +3,12 @@ import { db } from "./config";
 
 export type ApplicationStatus = "pending" | "approved" | "rejected";
 
+export interface PrinterInfo {
+  quantity: number;
+  brand: string;
+  model: string;
+}
+
 export interface ProviderApplication {
   id?: string;
   userId: string;
@@ -16,6 +22,7 @@ export interface ProviderApplication {
   address: string;
   printerBrand: string;
   printerModel: string;
+  printers?: PrinterInfo[];
   experience: string;
   status: ApplicationStatus;
   adminNote?: string;

@@ -44,6 +44,7 @@ export default function CustomerSetupPage() {
   const [selectedCity, setSelectedCity] = useState<string>("")
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([])
   const [isComplete, setIsComplete] = useState(false)
+  const [checkingRole, setCheckingRole] = useState(true)
 
   const {
     register,
@@ -91,9 +92,37 @@ export default function CustomerSetupPage() {
   }, [isComplete, handleBeforeUnload])
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login?redirect=/customer-setup")
+    const checkUserRole = async () => {
+      if (!authLoading && !user) {
+        router.push("/login?redirect=/customer-setup")
+        return
+      }
+
+      if (user) {
+        try {
+          const profile = await UserService.getUserProfile(user.uid)
+          if (profile) {
+            if (profile.role === "provider") {
+              router.push("/provider")
+              return
+            }
+            if (profile.role === "admin") {
+              router.push("/admin")
+              return
+            }
+            if (profile.phoneNumber) {
+              router.push("/customer")
+              return
+            }
+          }
+        } catch (error) {
+          console.error("Error checking user role:", error)
+        }
+        setCheckingRole(false)
+      }
     }
+
+    checkUserRole()
   }, [user, authLoading, router])
 
   const onSubmit = async (data: SetupFormValues) => {
@@ -102,29 +131,28 @@ export default function CustomerSetupPage() {
     setIsLoading(true)
     setError(null)
     try {
-      // Kullanıcı profilini güncelle
+      await UserService.ensureUserProfile(user, "customer")
+      
       await UserService.updateUserProfile(user.uid, {
         phoneNumber: data.phoneNumber,
       })
       
-      // Adres bilgisini ayrı bir koleksiyona kaydet
       const { addDoc, collection, serverTimestamp } = await import("firebase/firestore")
       const { db } = await import("@/lib/firebase/config")
       
       await addDoc(collection(db, "addresses"), {
         userId: user.uid,
-        title: "Ev", // Varsayılan adres başlığı
+        title: "Ev",
         city: data.city,
         district: data.district,
         fullAddress: data.address,
-        zipCode: "", // Opsiyonel
+        zipCode: "",
         isDefault: true,
         createdAt: serverTimestamp(),
       })
 
       setIsComplete(true)
       
-      // 2 saniye sonra customer paneline yönlendir
       setTimeout(() => {
         window.location.href = "/customer"
       }, 2000)
@@ -136,7 +164,7 @@ export default function CustomerSetupPage() {
     }
   }
 
-  if (authLoading) {
+  if (authLoading || checkingRole) {
     return (
       <div className="flex h-screen items-center justify-center bg-gradient-to-b from-primary/5 via-background to-background">
         <div className="flex flex-col items-center gap-4">
