@@ -1,25 +1,62 @@
 "use client"
 
-import { Suspense, useRef, useState, useEffect, useCallback } from "react"
+import { Suspense, useRef, useState, useEffect, useCallback, Component, ReactNode } from "react"
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber"
-import { OrbitControls, Center, Environment, ContactShadows, Float, Sparkles, Grid, Html } from "@react-three/drei"
+import { OrbitControls, Center, Environment, ContactShadows, Float, Sparkles, Grid } from "@react-three/drei"
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js"
 import * as THREE from "three"
-import { RotateCw, Maximize2, Move, ZoomIn, Grid3X3, Eye, Sun, Moon, Camera, Box } from "lucide-react"
+import { RotateCw, Maximize2, Move, ZoomIn, Grid3X3, Eye, Sun, Moon, Box, AlertTriangle, RefreshCw } from "lucide-react"
+
+interface ErrorBoundaryProps {
+  children: ReactNode
+  fallback: ReactNode
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback
+    }
+    return this.props.children
+  }
+}
 
 interface STLModelProps {
   url: string
   color?: string
   onLoad?: (geometry: THREE.BufferGeometry) => void
+  onError?: (error: Error) => void
   autoRotate?: boolean
   wireframe?: boolean
   materialType?: 'standard' | 'wireframe' | 'xray'
 }
 
-function STLModel({ url, color = "#3b82f6", onLoad, autoRotate = false, wireframe = false, materialType = 'standard' }: STLModelProps) {
+function STLModel({ url, color = "#3b82f6", onLoad, onError, autoRotate = false, wireframe = false, materialType = 'standard' }: STLModelProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const wireframeRef = useRef<THREE.LineSegments>(null)
-  const geometry = useLoader(STLLoader, url)
+  
+  let geometry: THREE.BufferGeometry
+  try {
+    geometry = useLoader(STLLoader, url)
+  } catch (error) {
+    if (onError && error instanceof Error) {
+      onError(error)
+    }
+    throw error
+  }
 
   useEffect(() => {
     if (geometry && onLoad) {
@@ -173,6 +210,7 @@ interface STLViewerProps {
   className?: string
   showGrid?: boolean
   onModelLoad?: (info: ModelInfo) => void
+  onError?: (error: Error) => void
 }
 
 export interface ModelInfo {
@@ -183,6 +221,35 @@ export interface ModelInfo {
     z: number
   }
   triangleCount: number
+}
+
+function ErrorDisplay({ error, onRetry, darkMode }: { error: string, onRetry?: () => void, darkMode: boolean }) {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center z-10">
+      <div className="text-center px-8">
+        <div className={`w-16 h-16 mx-auto rounded-2xl ${darkMode ? 'bg-red-500/20' : 'bg-red-100'} flex items-center justify-center mb-4`}>
+          <AlertTriangle className={`h-8 w-8 ${darkMode ? 'text-red-400' : 'text-red-500'}`} />
+        </div>
+        <p className={`font-medium mb-2 ${darkMode ? 'text-white/80' : 'text-gray-800'}`}>Model Yüklenemedi</p>
+        <p className={`text-sm mb-4 max-w-[250px] mx-auto ${darkMode ? 'text-white/50' : 'text-gray-500'}`}>
+          {error || 'Dosya yüklenirken bir hata oluştu. Lütfen tekrar deneyin.'}
+        </p>
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              darkMode 
+                ? 'bg-white/10 hover:bg-white/20 text-white border border-white/20' 
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+            }`}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Tekrar Dene
+          </button>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function calculateVolume(geometry: THREE.BufferGeometry): number {
@@ -220,9 +287,12 @@ export default function STLViewer({
   color = "#3b82f6", 
   className = "",
   showGrid = true,
-  onModelLoad
+  onModelLoad,
+  onError
 }: STLViewerProps) {
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
   const [autoRotate, setAutoRotate] = useState(false)
   const [showGridLines, setShowGridLines] = useState(true)
   const [showWireframe, setShowWireframe] = useState(false)
@@ -231,8 +301,14 @@ export default function STLViewer({
   const [darkMode, setDarkMode] = useState(true)
   const controlsRef = useRef<any>(null)
 
+  useEffect(() => {
+    setError(null)
+    setIsLoading(true)
+  }, [url])
+
   const handleModelLoad = useCallback((geometry: THREE.BufferGeometry) => {
     setIsLoading(false)
+    setError(null)
     
     if (onModelLoad) {
       geometry.computeBoundingBox()
@@ -255,6 +331,18 @@ export default function STLViewer({
     }
   }, [onModelLoad])
 
+  const handleError = useCallback((err: Error) => {
+    setIsLoading(false)
+    setError(err.message || 'Model yüklenirken bir hata oluştu')
+    onError?.(err)
+  }, [onError])
+
+  const handleRetry = useCallback(() => {
+    setError(null)
+    setIsLoading(true)
+    setRetryKey(prev => prev + 1)
+  }, [])
+
   const handleResetView = () => {
     setViewAngle('iso')
     if (controlsRef.current) {
@@ -274,6 +362,19 @@ export default function STLViewer({
     { key: 'top', label: 'Üst' },
     { key: 'right', label: 'Sağ' },
   ]
+
+  if (error) {
+    return (
+      <div className={`relative w-full h-full min-h-[300px] rounded-2xl overflow-hidden ${className}`}>
+        <div className={`absolute inset-0 ${
+          darkMode 
+            ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900' 
+            : 'bg-gradient-to-br from-slate-100 via-white to-slate-200'
+        }`} />
+        <ErrorDisplay error={error} onRetry={handleRetry} darkMode={darkMode} />
+      </div>
+    )
+  }
 
   return (
     <div className={`relative w-full h-full min-h-[300px] rounded-2xl overflow-hidden group ${className}`}>
@@ -437,16 +538,20 @@ export default function STLViewer({
         <Environment preset={darkMode ? "night" : "apartment"} />
         
         <Suspense fallback={null}>
-          <Center>
-            <STLModel 
-              url={url} 
-              color={color} 
-              onLoad={handleModelLoad} 
-              autoRotate={autoRotate}
-              wireframe={showWireframe}
-              materialType={materialType}
-            />
-          </Center>
+          <ErrorBoundary fallback={null}>
+            <Center>
+              <STLModel 
+                key={retryKey}
+                url={url} 
+                color={color} 
+                onLoad={handleModelLoad}
+                onError={handleError}
+                autoRotate={autoRotate}
+                wireframe={showWireframe}
+                materialType={materialType}
+              />
+            </Center>
+          </ErrorBoundary>
         </Suspense>
 
         {showGridLines && (

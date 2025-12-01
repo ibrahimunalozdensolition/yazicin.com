@@ -34,7 +34,9 @@ export default function NewOrderPage() {
   const { user, loading: authLoading } = useAuth()
   const [step, setStep] = useState(1)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [fileUrl, setFileUrl] = useState<string | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null)
+  const [uploadedFilePath, setUploadedFilePath] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
   const [isUploading, setIsUploading] = useState(false)
   const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null)
@@ -52,18 +54,31 @@ export default function NewOrderPage() {
     }
   }, [user, authLoading, router])
 
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+    }
+  }, [previewUrl])
+
   const handleFileSelect = (file: File) => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+    }
     setSelectedFile(file)
     const url = URL.createObjectURL(file)
-    setFileUrl(url)
+    setPreviewUrl(url)
   }
 
   const handleFileRemove = () => {
-    if (fileUrl) {
-      URL.revokeObjectURL(fileUrl)
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
     }
     setSelectedFile(null)
-    setFileUrl(null)
+    setPreviewUrl(null)
+    setUploadedFileUrl(null)
+    setUploadedFilePath(null)
     setModelInfo(null)
   }
 
@@ -78,7 +93,8 @@ export default function NewOrderPage() {
           setUploadProgress(progress.progress)
         }
       )
-      setFileUrl(result.url)
+      setUploadedFileUrl(result.url)
+      setUploadedFilePath(result.path)
       setStep(2)
     } catch (error) {
       console.error(error)
@@ -416,9 +432,9 @@ export default function NewOrderPage() {
               </div>
 
               <div className="relative">
-                {fileUrl ? (
+                {previewUrl ? (
                   <STLViewer 
-                    url={fileUrl} 
+                    url={previewUrl} 
                     className="h-[420px]" 
                     color={printSettings.color === "Kırmızı" ? "#ef4444" : 
                            printSettings.color === "Mavi" ? "#3b82f6" : 
