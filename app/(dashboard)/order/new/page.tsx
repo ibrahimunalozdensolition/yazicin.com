@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import { ArrowLeft, Loader2, Upload, Box, Settings, CheckCircle, Layers, Triangle, Ruler, MapPin, Star, Printer, CreditCard, Clock } from "lucide-react"
+import { ArrowLeft, Loader2, Upload, Box, Settings, CheckCircle, MapPin, Star, Printer, CreditCard, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -21,14 +21,15 @@ import { db } from "@/lib/firebase/config"
 const STLViewer = dynamic(() => import("@/components/3d/STLViewer"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-[400px] bg-muted/30 rounded-lg flex items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <div className="w-full max-w-[400px] h-[300px] rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+      <Loader2 className="h-6 w-6 animate-spin text-primary" />
     </div>
   ),
 })
 
 interface ModelInfo {
   volume: number
+  weight: number
   boundingBox: { x: number; y: number; z: number }
   triangleCount: number
 }
@@ -95,16 +96,59 @@ export default function NewOrderPage() {
   }, [previewUrl])
 
   useEffect(() => {
-    if (step === 3 && printSettings.material) {
+    if (step === 3 && printSettings.material && modelInfo) {
       fetchProviders()
     }
-  }, [step, printSettings.material])
+  }, [step, printSettings.material, printSettings.infill, printSettings.quality, printSettings.quantity, modelInfo])
+
+  useEffect(() => {
+    if (step === 3 && selectedProvider && modelInfo) {
+      const updatedPrice = calculatePrice(
+        selectedProvider.printer,
+        modelInfo.weight,
+        printSettings.infill,
+        printSettings.quality,
+        printSettings.quantity
+      )
+      setSelectedProvider({
+        ...selectedProvider,
+        estimatedPrice: updatedPrice
+      })
+    }
+  }, [printSettings.infill, printSettings.quality, printSettings.quantity, modelInfo, step])
 
   useEffect(() => {
     if (step === 4 && user) {
       fetchAddresses()
     }
   }, [step, user])
+
+  const calculatePrice = (printer: PrinterType, modelWeight: number, infill: number, quality: string, quantity: number) => {
+    if (!modelWeight || modelWeight === 0) return 0
+    
+    const baseWeight = modelWeight * (infill / 100)
+    const basePrice = baseWeight * printer.pricing.perGram
+    
+    const qualityMultiplier = quality === "high" ? 1.4 : quality === "draft" ? 0.85 : 1.0
+    const infillMultiplier = infill > 50 ? 1 + ((infill - 50) / 100) : 1
+    
+    const finalPrice = basePrice * qualityMultiplier * infillMultiplier * quantity
+    
+    return Math.max(Math.round(finalPrice), printer.pricing.minOrder)
+  }
+
+  const calculateDeliveryTime = (modelWeight: number, infill: number, quality: string, quantity: number) => {
+    if (!modelWeight || modelWeight === 0) return 3
+    
+    const baseHours = modelWeight * 0.5
+    const qualityMultiplier = quality === "high" ? 1.5 : quality === "draft" ? 0.7 : 1.0
+    const infillMultiplier = infill > 50 ? 1 + ((infill - 50) / 200) : 1
+    
+    const totalHours = baseHours * qualityMultiplier * infillMultiplier * quantity
+    const days = Math.ceil(totalHours / 8)
+    
+    return Math.max(days, 1)
+  }
 
   const fetchProviders = async () => {
     setLoadingProviders(true)
@@ -122,9 +166,14 @@ export default function NewOrderPage() {
           
           if (!providerDoc.empty) {
             const providerData = providerDoc.docs[0].data()
-            const basePrice = modelInfo ? modelInfo.volume * 0.5 : 50
-            const qualityMultiplier = printSettings.quality === "high" ? 1.5 : printSettings.quality === "draft" ? 0.8 : 1
-            const estimatedPrice = Math.round(basePrice * qualityMultiplier * printSettings.quantity)
+            const modelWeight = modelInfo?.weight || 0
+            const estimatedPrice = calculatePrice(
+              printer,
+              modelWeight,
+              printSettings.infill,
+              printSettings.quality,
+              printSettings.quantity
+            )
             
             providersMap.set(printer.providerId, {
               providerId: printer.providerId,
@@ -208,9 +257,9 @@ export default function NewOrderPage() {
     }
   }
 
-  const handleModelLoad = (info: ModelInfo) => {
+  const handleModelLoad = useCallback((info: ModelInfo) => {
     setModelInfo(info)
-  }
+  }, [])
 
   const handleCreateOrder = async () => {
     if (!user || !selectedFile || !selectedProvider || !selectedAddress || !uploadedFileUrl) return
@@ -450,15 +499,15 @@ export default function NewOrderPage() {
                   <Label>Doluluk Oranı: {printSettings.infill}%</Label>
                   <input
                     type="range"
-                    min="10"
+                    min="5"
                     max="100"
-                    step="10"
+                    step="5"
                     value={printSettings.infill}
                     onChange={(e) => setPrintSettings({ ...printSettings, infill: parseInt(e.target.value) })}
                     className="w-full accent-primary"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>10% (Hafif)</span>
+                    <span>5% (Hafif)</span>
                     <span>100% (Dolu)</span>
                   </div>
                 </div>
@@ -554,6 +603,17 @@ export default function NewOrderPage() {
                               <MapPin className="h-3.5 w-3.5" />
                               {provider.city}, {provider.district}
                             </div>
+                            {modelInfo && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                <Clock className="h-3 w-3" />
+                                {calculateDeliveryTime(
+                                  modelInfo.weight,
+                                  printSettings.infill,
+                                  printSettings.quality,
+                                  printSettings.quantity
+                                )} gün teslimat
+                              </div>
+                            )}
                           </div>
                           <div className="text-right">
                             <p className="text-xl font-bold text-primary">₺{provider.estimatedPrice}</p>
@@ -640,11 +700,25 @@ export default function NewOrderPage() {
                     <span className="font-medium">{selectedProvider?.providerName}</span>
                   </div>
                   <div className="border-t border-border pt-3 mt-3">
-                    <div className="flex justify-between">
-                      <span className="font-medium text-foreground">Toplam</span>
-                      <span className="text-xl font-bold text-primary">₺{selectedProvider?.estimatedPrice}</span>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-foreground">Toplam</span>
+                    <span className="text-xl font-bold text-primary">₺{selectedProvider?.estimatedPrice}</span>
                   </div>
+                  {modelInfo && (
+                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Tahmini Teslimat:</span>
+                      <span className="text-sm font-medium text-foreground">
+                        {calculateDeliveryTime(
+                          modelInfo.weight,
+                          printSettings.infill,
+                          printSettings.quality,
+                          printSettings.quantity
+                        )} gün
+                      </span>
+                    </div>
+                  )}
+                </div>
                 </div>
 
                 <div className="space-y-3">
@@ -755,92 +829,65 @@ export default function NewOrderPage() {
                 </div>
               </div>
 
-              <div className="relative">
-                {previewUrl ? (
-                  <STLViewer 
-                    url={previewUrl} 
-                    className="h-[420px]" 
-                    color={printSettings.color === "Kırmızı" ? "#ef4444" : 
-                           printSettings.color === "Mavi" ? "#3b82f6" : 
-                           printSettings.color === "Yeşil" ? "#22c55e" : 
-                           printSettings.color === "Sarı" ? "#eab308" :
-                           printSettings.color === "Turuncu" ? "#f97316" :
-                           printSettings.color === "Mor" ? "#a855f7" :
-                           printSettings.color === "Beyaz" ? "#f5f5f5" :
-                           printSettings.color === "Siyah" ? "#1a1a1a" :
-                           "#3b82f6"}
-                    onModelLoad={handleModelLoad}
-                  />
-                ) : (
-                  <div className="h-[420px] flex items-center justify-center">
-                    <div className="text-center px-8">
-                      <div className="relative mb-6">
-                        <div className="w-24 h-24 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm">
-                          <Box className="h-10 w-10 text-white/30" />
+              <div className="relative p-4">
+                <div className="flex justify-center">
+                  {previewUrl ? (
+                    <STLViewer 
+                      url={previewUrl} 
+                      material={printSettings.material || "PLA"}
+                      color={printSettings.color === "Kırmızı" ? "#ef4444" : 
+                             printSettings.color === "Mavi" ? "#3b82f6" : 
+                             printSettings.color === "Yeşil" ? "#22c55e" : 
+                             printSettings.color === "Sarı" ? "#eab308" :
+                             printSettings.color === "Turuncu" ? "#f97316" :
+                             printSettings.color === "Mor" ? "#a855f7" :
+                             printSettings.color === "Beyaz" ? "#f5f5f5" :
+                             printSettings.color === "Siyah" ? "#1a1a1a" :
+                             "#3b82f6"}
+                      onModelLoad={handleModelLoad}
+                    />
+                  ) : (
+                    <div className="w-full max-w-[400px] h-[300px] rounded-2xl bg-slate-800/50 border border-white/5 flex items-center justify-center">
+                      <div className="text-center px-6">
+                        <div className="relative mb-4">
+                          <div className="w-16 h-16 mx-auto rounded-xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm">
+                            <Box className="h-7 w-7 text-white/30" />
+                          </div>
+                          <div className="absolute -top-1 -right-1 w-6 h-6 rounded-md bg-primary/20 border border-primary/30 flex items-center justify-center animate-bounce">
+                            <Upload className="h-3 w-3 text-primary" />
+                          </div>
                         </div>
-                        <div className="absolute -top-2 -right-2 w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center animate-bounce">
-                          <Upload className="h-4 w-4 text-primary" />
-                        </div>
+                        <p className="text-white/60 font-medium mb-1 text-sm">Model Bekleniyor</p>
+                        <p className="text-xs text-white/40 max-w-[180px] mx-auto">
+                          STL dosyanızı yükleyin
+                        </p>
                       </div>
-                      <p className="text-white/60 font-medium mb-2">Model Bekleniyor</p>
-                      <p className="text-sm text-white/40 max-w-[200px] mx-auto">
-                        STL dosyanızı yükleyin, 3D önizleme burada görünecek
-                      </p>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {modelInfo && (
                 <div className="relative p-4 border-t border-white/10">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="group relative p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all duration-300">
+                  <div className="flex justify-center">
+                    <div className="group relative p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all duration-300 w-full max-w-md">
                       <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center">
-                            <Layers className="h-3 w-3 text-primary" />
+                      <div className="relative flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                            <Box className="h-5 w-5 text-primary" />
                           </div>
-                          <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Hacim</span>
-                        </div>
-                        <p className="text-xl font-bold text-white">
-                          {modelInfo.volume.toFixed(1)}
-                          <span className="text-sm font-normal text-white/50 ml-1">cm³</span>
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="group relative p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-secondary/30 transition-all duration-300">
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-secondary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded-lg bg-secondary/20 flex items-center justify-center">
-                            <Ruler className="h-3 w-3 text-secondary" />
+                          <div>
+                            <span className="text-xs uppercase tracking-wider text-white/40 font-medium block mb-1">Ortalama Gramaj</span>
+                            <p className="text-sm text-white/50">{printSettings.infill}% doluluk</p>
                           </div>
-                          <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Boyut</span>
                         </div>
-                        <p className="text-lg font-bold text-white leading-tight">
-                          {modelInfo.boundingBox.x}×{modelInfo.boundingBox.y}
-                          <br />
-                          <span className="text-white/70">×{modelInfo.boundingBox.z}</span>
-                          <span className="text-xs font-normal text-white/50 ml-1">mm</span>
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="group relative p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-accent/30 transition-all duration-300">
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 rounded-lg bg-accent/20 flex items-center justify-center">
-                            <Triangle className="h-3 w-3 text-accent" />
-                          </div>
-                          <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Üçgen</span>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-white">
+                            {(modelInfo.weight * (printSettings.infill / 100)).toFixed(1)}
+                            <span className="text-base font-normal text-white/50 ml-1">g</span>
+                          </p>
                         </div>
-                        <p className="text-xl font-bold text-white">
-                          {(modelInfo.triangleCount / 1000).toFixed(1)}
-                          <span className="text-sm font-normal text-white/50 ml-1">K</span>
-                        </p>
                       </div>
                     </div>
                   </div>

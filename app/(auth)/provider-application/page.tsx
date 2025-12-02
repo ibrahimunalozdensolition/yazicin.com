@@ -376,11 +376,11 @@ export default function ProviderApplicationPage() {
                   name="phoneNumber"
                   control={control}
                   render={({ field }) => (
-                    <Input 
-                      id="phoneNumber" 
+              <Input 
+                id="phoneNumber" 
                       placeholder="0 (5XX) XXX XX XX" 
-                      disabled={isLoading}
-                      className="h-11 border-border/50 focus:border-primary/50 transition-colors"
+                disabled={isLoading}
+                  className="h-11 border-border/50 focus:border-primary/50 transition-colors"
                       value={formatPhoneNumber(field.value || "")}
                       onChange={(e) => {
                         const formatted = formatPhoneNumber(e.target.value)
@@ -388,7 +388,7 @@ export default function ProviderApplicationPage() {
                       }}
                     />
                   )}
-                />
+              />
               {errors.phoneNumber && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
@@ -576,8 +576,8 @@ export default function ProviderApplicationPage() {
                       className="h-10"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Yazıcı Markası</Label>
+              <div className="space-y-2">
+                  <Label className="text-sm font-medium">Yazıcı Markası</Label>
                     <Combobox
                       options={getSortedBrands()}
                       value={printer.brand}
@@ -585,11 +585,11 @@ export default function ProviderApplicationPage() {
                       placeholder="Marka Seçiniz"
                       searchPlaceholder="Marka ara..."
                       emptyText="Marka bulunamadı."
-                      disabled={isLoading}
+                  disabled={isLoading}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Yazıcı Modeli</Label>
+              </div>
+              <div className="space-y-2">
+                  <Label className="text-sm font-medium">Yazıcı Modeli</Label>
                     <Combobox
                       options={printer.availableModels}
                       value={printer.model}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle, Loader2, MessageSquare, Star } from "lucide-react"
+import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle, Loader2, MessageSquare, Star, AlertCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
@@ -28,6 +28,56 @@ export default function CustomerOrdersPage() {
   useEffect(() => {
     if (user) {
       fetchOrders()
+      
+      const unsubscribeOrders: Array<() => void> = []
+      
+      const setupRealtimeUpdates = async () => {
+        try {
+          const initialOrders = await OrderService.getByCustomerId(user.uid)
+          setOrders(initialOrders)
+          
+          const reviewed = new Set<string>()
+          for (const order of initialOrders) {
+            if (order.status === "delivered" && order.id) {
+              const hasReview = await ReviewService.hasReviewed(order.id)
+              if (hasReview) reviewed.add(order.id)
+            }
+            
+            if (order.id) {
+              const unsubscribe = OrderService.subscribeToOrder(order.id, (updatedOrder) => {
+                if (updatedOrder) {
+                  setOrders((prev) => {
+                    const filtered = prev.filter((o) => o.id !== updatedOrder.id)
+                    return [...filtered, updatedOrder].sort(
+                      (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+                    )
+                  })
+                  
+                  if (updatedOrder.status === "delivered" && updatedOrder.id) {
+                    ReviewService.hasReviewed(updatedOrder.id).then((hasReview) => {
+                      if (hasReview) {
+                        setReviewedOrders((prev) => new Set([...prev, updatedOrder.id!]))
+                      }
+                    })
+                  }
+                }
+              })
+              unsubscribeOrders.push(unsubscribe)
+            }
+          }
+          setReviewedOrders(reviewed)
+        } catch (error) {
+          console.error(error)
+        } finally {
+          setLoading(false)
+        }
+      }
+      
+      setupRealtimeUpdates()
+      
+      return () => {
+        unsubscribeOrders.forEach((unsub) => unsub())
+      }
     }
   }, [user])
 
@@ -149,9 +199,32 @@ export default function CustomerOrdersPage() {
                         <span>Malzeme: {order.printSettings.material}</span>
                         <span>Adet: {order.printSettings.quantity}</span>
                       </div>
+                      {order.proposedPrice && order.priceChangeStatus === "pending" && (
+                        <div className="mt-2 flex items-center gap-2 text-sm px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 w-fit">
+                          <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                          <span className="text-amber-600 font-medium">
+                            Fiyat değişikliği önerisi: ₺{order.price} → ₺{order.proposedPrice}
+                          </span>
+                        </div>
+                      )}
+                      {order.status === "in_production" && order.productionHours && order.productionStartedAt && (
+                        <div className="mt-2 flex items-center gap-2 text-sm">
+                          <Clock className="h-3.5 w-3.5 text-purple-500" />
+                          <span className="text-muted-foreground">
+                            Üretim süresi: {order.productionHours} saat
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <p className="text-xl font-bold text-primary">₺{order.price}</p>
+                      <div className="flex items-center gap-2">
+                        {order.proposedPrice && order.priceChangeStatus === "pending" && (
+                          <span className="text-sm line-through text-muted-foreground">₺{order.price}</span>
+                        )}
+                        <p className={`text-xl font-bold ${order.proposedPrice && order.priceChangeStatus === "pending" ? "text-amber-600" : "text-primary"}`}>
+                          ₺{order.proposedPrice && order.priceChangeStatus === "pending" ? order.proposedPrice : order.price}
+                        </p>
+                      </div>
                       <p className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
                       <div className="flex gap-2">
                         {canReview && (

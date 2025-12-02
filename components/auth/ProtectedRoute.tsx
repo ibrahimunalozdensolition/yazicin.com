@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import { UserService, UserRole } from "@/lib/firebase/users"
+import { USE_EMULATOR } from "@/lib/firebase/config"
 import { Loader2 } from "lucide-react"
 
 interface ProtectedRouteProps {
@@ -27,7 +28,15 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
         return
       }
 
-      if (!user.emailVerified) {
+      let isVerified = false
+      if (USE_EMULATOR) {
+        const profile = await UserService.getUserProfile(user.uid)
+        isVerified = profile?.isEmailVerified || false
+      } else {
+        isVerified = user.emailVerified
+      }
+
+      if (!isVerified) {
         router.push("/verify-email")
         return
       }

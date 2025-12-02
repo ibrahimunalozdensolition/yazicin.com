@@ -121,21 +121,21 @@ export default function CustomerDashboard() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : recentOrders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
-                  <ShoppingBag className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-medium text-foreground mb-2">Henüz siparişiniz yok</h3>
-                <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-                  İlk siparişinizi oluşturmak için STL dosyanızı yükleyin ve en uygun yazıcıyı bulun.
-                </p>
-                <Link href="/order/new">
-                  <Button className="gap-2">
-                    <FileUp className="h-4 w-4" />
-                    Sipariş Oluştur
-                  </Button>
-                </Link>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+                <ShoppingBag className="h-8 w-8 text-muted-foreground" />
               </div>
+              <h3 className="text-lg font-medium text-foreground mb-2">Henüz siparişiniz yok</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+                İlk siparişinizi oluşturmak için STL dosyanızı yükleyin ve en uygun yazıcıyı bulun.
+              </p>
+              <Link href="/order/new">
+                <Button className="gap-2">
+                  <FileUp className="h-4 w-4" />
+                  Sipariş Oluştur
+                </Button>
+              </Link>
+            </div>
             ) : (
               <div className="space-y-3">
                 {recentOrders.map((order) => {

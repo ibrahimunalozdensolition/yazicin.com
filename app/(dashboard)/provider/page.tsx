@@ -253,19 +253,19 @@ export default function ProviderDashboard() {
 
       {pendingOrders.length > 0 && (
         <Card className="mb-6 border-amber-500/50 bg-amber-500/5">
-          <CardContent className="flex items-center gap-4 py-4">
+        <CardContent className="flex items-center gap-4 py-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10">
               <Clock className="h-5 w-5 text-amber-500" />
-            </div>
+          </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">{pendingOrders.length} Yeni Sipariş Bekliyor</p>
               <p className="text-xs text-muted-foreground">Onay bekleyen siparişleriniz var.</p>
-            </div>
+          </div>
             <Link href="/provider/orders">
               <Button size="sm" variant="outline">Görüntüle</Button>
             </Link>
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
       )}
 
       <div className="grid gap-4 md:grid-cols-4 mb-8">
@@ -321,21 +321,21 @@ export default function ProviderDashboard() {
           </CardHeader>
           <CardContent>
             {recentOrders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
-                  <Package className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-medium text-foreground mb-2">Henüz sipariş yok</h3>
-                <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-                  Yazıcılarınızı ekleyip fiyatlandırmanızı yapılandırdıktan sonra siparişler burada görünecek.
-                </p>
-                <Link href="/provider/printers/new">
-                  <Button className="gap-2">
-                    <Printer className="h-4 w-4" />
-                    Yazıcı Ekle
-                  </Button>
-                </Link>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+                <Package className="h-8 w-8 text-muted-foreground" />
               </div>
+              <h3 className="text-lg font-medium text-foreground mb-2">Henüz sipariş yok</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+                Yazıcılarınızı ekleyip fiyatlandırmanızı yapılandırdıktan sonra siparişler burada görünecek.
+              </p>
+              <Link href="/provider/printers/new">
+                <Button className="gap-2">
+                  <Printer className="h-4 w-4" />
+                  Yazıcı Ekle
+                </Button>
+              </Link>
+            </div>
             ) : (
               <div className="space-y-3">
                 {recentOrders.map((order) => {

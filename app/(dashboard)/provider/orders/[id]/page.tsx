@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle, Loader2, Send, MapPin, User, Play, Check, FileDown } from "lucide-react"
+import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle, Loader2, Send, MapPin, User, Play, Check, FileDown, DollarSign, Edit } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,37 +34,48 @@ export default function ProviderOrderDetailPage() {
   const [trackingNumber, setTrackingNumber] = useState("")
   const [trackingCompany, setTrackingCompany] = useState("")
   const [showTrackingForm, setShowTrackingForm] = useState(false)
+  const [showProductionForm, setShowProductionForm] = useState(false)
+  const [productionHours, setProductionHours] = useState("")
+  const [showPriceForm, setShowPriceForm] = useState(false)
+  const [newPrice, setNewPrice] = useState("")
+  const [priceLoading, setPriceLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (orderId) {
-      fetchOrder()
-      const unsubscribe = MessageService.subscribeToMessages(orderId, (msgs) => {
-        setMessages(msgs)
-        scrollToBottom()
+      setLoading(true)
+      
+      const unsubscribeOrder = OrderService.subscribeToOrder(orderId, (orderData) => {
+        if (orderData) {
+          setOrder(orderData)
+          setLoading(false)
+        } else {
+          setOrder(null)
+          setLoading(false)
+        }
       })
-      return () => unsubscribe()
+      
+      const unsubscribeMessages = MessageService.subscribeToMessages(orderId, (msgs) => {
+        setMessages(msgs)
+        setTimeout(() => scrollToBottom(), 100)
+      })
+      
+      return () => {
+        unsubscribeOrder()
+        unsubscribeMessages()
+      }
     }
   }, [orderId])
 
   useEffect(() => {
-    scrollToBottom()
+    setTimeout(() => scrollToBottom(), 100)
   }, [messages])
 
-  const fetchOrder = async () => {
-    setLoading(true)
-    try {
-      const data = await OrderService.getById(orderId)
-      setOrder(data)
-    } catch (error) {
-      console.error(error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    }
   }
 
   const handleSendMessage = async () => {
@@ -80,6 +91,7 @@ export default function ProviderOrderDetailPage() {
         content: newMessage.trim(),
       })
       setNewMessage("")
+      setTimeout(() => scrollToBottom(), 100)
     } catch (error) {
       console.error(error)
     } finally {
@@ -87,16 +99,30 @@ export default function ProviderOrderDetailPage() {
     }
   }
 
-  const handleStatusChange = async (newStatus: OrderStatus) => {
+  const handleStatusChange = async (newStatus: OrderStatus, hours?: number) => {
     if (!order?.id) return
     setActionLoading(true)
     try {
-      await OrderService.updateStatus(order.id, newStatus)
-      fetchOrder()
+      const additionalData: Partial<Order> = {}
+      if (newStatus === "in_production" && hours !== undefined) {
+        additionalData.productionHours = hours
+      }
+      await OrderService.updateStatus(order.id, newStatus, additionalData)
+      if (newStatus === "in_production") {
+        setShowProductionForm(false)
+        setProductionHours("")
+      }
     } catch (error) {
       console.error(error)
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const handleStartProduction = async () => {
+    const hours = parseFloat(productionHours)
+    if (hours > 0) {
+      await handleStatusChange("in_production", hours)
     }
   }
 
@@ -107,11 +133,29 @@ export default function ProviderOrderDetailPage() {
       await OrderService.addTrackingInfo(order.id, trackingNumber, trackingCompany)
       await OrderService.updateStatus(order.id, "shipped")
       setShowTrackingForm(false)
-      fetchOrder()
+      setTrackingNumber("")
+      setTrackingCompany("")
     } catch (error) {
       console.error(error)
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const handleProposePriceChange = async () => {
+    if (!order?.id || !newPrice) return
+    const price = parseFloat(newPrice)
+    if (price <= 0 || price === order.price) return
+
+    setPriceLoading(true)
+    try {
+      await OrderService.proposePriceChange(order.id, price)
+      setShowPriceForm(false)
+      setNewPrice("")
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setPriceLoading(false)
     }
   }
 
@@ -185,8 +229,8 @@ export default function ProviderOrderDetailPage() {
             </>
           )}
           {order.status === "accepted" && (
-            <Button onClick={() => handleStatusChange("in_production")} disabled={actionLoading} className="gap-2">
-              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            <Button onClick={() => setShowProductionForm(true)} disabled={actionLoading} className="gap-2">
+              <Play className="h-4 w-4" />
               Üretime Başla
             </Button>
           )}
@@ -204,6 +248,120 @@ export default function ProviderOrderDetailPage() {
           )}
         </div>
       </div>
+
+      {showProductionForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md border-primary/50">
+            <CardHeader>
+              <CardTitle className="text-lg">Üretim Bilgileri</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="productionHours">Toplam Üretim Süresi (Saat) *</Label>
+                <Input
+                  id="productionHours"
+                  type="number"
+                  value={productionHours}
+                  onChange={(e) => setProductionHours(e.target.value)}
+                  placeholder="Örn: 5.5"
+                  min="0"
+                  step="0.1"
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">Makine kaç saat kullanılacak?</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => {
+                  setShowProductionForm(false)
+                  setProductionHours("")
+                }} className="flex-1">
+                  İptal
+                </Button>
+                <Button 
+                  onClick={handleStartProduction} 
+                  disabled={!productionHours || parseFloat(productionHours) <= 0 || actionLoading}
+                  className="flex-1"
+                >
+                  {actionLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      İşleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Üretime Başla
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {showPriceForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md border-primary/50">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Fiyat Güncelleme
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="currentPrice">Mevcut Fiyat</Label>
+                <Input
+                  id="currentPrice"
+                  value={`₺${order.price}`}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="newPrice">Yeni Fiyat (₺) *</Label>
+                <Input
+                  id="newPrice"
+                  type="number"
+                  value={newPrice}
+                  onChange={(e) => setNewPrice(e.target.value)}
+                  placeholder="Örn: 100"
+                  min="0"
+                  step="0.01"
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">Müşteri onayından sonra fiyat güncellenecek</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => {
+                  setShowPriceForm(false)
+                  setNewPrice("")
+                }} className="flex-1">
+                  İptal
+                </Button>
+                <Button
+                  onClick={handleProposePriceChange}
+                  disabled={!newPrice || parseFloat(newPrice) <= 0 || parseFloat(newPrice) === order.price || priceLoading}
+                  className="flex-1"
+                >
+                  {priceLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Gönderiliyor...
+                    </>
+                  ) : (
+                    <>
+                      <DollarSign className="h-4 w-4 mr-2" />
+                      Fiyat Öner
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {showTrackingForm && (
         <Card className="mb-6 border-primary/50">
@@ -247,7 +405,7 @@ export default function ProviderOrderDetailPage() {
               <CardTitle className="text-lg">Mesajlar</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] overflow-y-auto mb-4 space-y-3 p-3 rounded-lg bg-muted/30">
+              <div ref={messagesContainerRef} className="h-[300px] overflow-y-auto mb-4 space-y-3 p-3 rounded-lg bg-muted/30">
                 {messages.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                     Henüz mesaj yok. Müşteri ile iletişime geçin.
@@ -363,9 +521,34 @@ export default function ProviderOrderDetailPage() {
 
           <Card className="border-primary/50 bg-primary/5">
             <CardContent className="py-6">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Sipariş Tutarı</span>
-                <span className="text-2xl font-bold text-primary">₺{order.price}</span>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Sipariş Tutarı</span>
+                  <span className="text-2xl font-bold text-primary">₺{order.price}</span>
+                </div>
+                {order.proposedPrice && order.priceChangeStatus === "pending" && (
+                  <div className="pt-3 border-t border-primary/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-muted-foreground">Önerilen Fiyat</span>
+                      <span className="text-lg font-semibold text-amber-500">₺{order.proposedPrice}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Müşteri onayı bekleniyor</p>
+                  </div>
+                )}
+                {(order.status === "pending" || order.status === "accepted") && (!order.proposedPrice || order.priceChangeStatus !== "pending") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setNewPrice(order.price.toString())
+                      setShowPriceForm(true)
+                    }}
+                    className="w-full mt-3"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Fiyat Güncelle
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

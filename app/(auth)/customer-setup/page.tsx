@@ -93,8 +93,8 @@ export default function CustomerSetupPage() {
 
   useEffect(() => {
     const checkUserRole = async () => {
-      if (!authLoading && !user) {
-        router.push("/login?redirect=/customer-setup")
+    if (!authLoading && !user) {
+      router.push("/login?redirect=/customer-setup")
         return
       }
 

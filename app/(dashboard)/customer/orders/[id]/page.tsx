@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle, Loader2, Send, MapPin, Printer, Star } from "lucide-react"
+import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle, Loader2, Send, MapPin, Printer, Star, DollarSign, AlertCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,42 +39,47 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [hasReviewed, setHasReviewed] = useState(false)
+  const [priceActionLoading, setPriceActionLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (orderId) {
-      fetchOrder()
-      const unsubscribe = MessageService.subscribeToMessages(orderId, (msgs) => {
-        setMessages(msgs)
-        scrollToBottom()
+      setLoading(true)
+      
+      const unsubscribeOrder = OrderService.subscribeToOrder(orderId, (orderData) => {
+        if (orderData) {
+          setOrder(orderData)
+          if (orderData.status === "delivered") {
+            ReviewService.hasReviewed(orderId).then(setHasReviewed)
+          }
+          setLoading(false)
+        } else {
+          setOrder(null)
+          setLoading(false)
+        }
       })
-      return () => unsubscribe()
+      
+      const unsubscribeMessages = MessageService.subscribeToMessages(orderId, (msgs) => {
+        setMessages(msgs)
+        setTimeout(() => scrollToBottom(), 100)
+      })
+      
+      return () => {
+        unsubscribeOrder()
+        unsubscribeMessages()
+      }
     }
   }, [orderId])
 
   useEffect(() => {
-    scrollToBottom()
+    setTimeout(() => scrollToBottom(), 100)
   }, [messages])
 
-  const fetchOrder = async () => {
-    setLoading(true)
-    try {
-      const data = await OrderService.getById(orderId)
-      setOrder(data)
-      
-      if (data?.status === "delivered") {
-        const reviewed = await ReviewService.hasReviewed(orderId)
-        setHasReviewed(reviewed)
-      }
-    } catch (error) {
-      console.error(error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    }
   }
 
   const handleSendMessage = async () => {
@@ -90,10 +95,23 @@ export default function OrderDetailPage() {
         content: newMessage.trim(),
       })
       setNewMessage("")
+      setTimeout(() => scrollToBottom(), 100)
     } catch (error) {
       console.error(error)
     } finally {
       setSending(false)
+    }
+  }
+
+  const handlePriceChangeResponse = async (accept: boolean) => {
+    if (!order?.id) return
+    setPriceActionLoading(true)
+    try {
+      await OrderService.respondToPriceChange(order.id, accept)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setPriceActionLoading(false)
     }
   }
 
@@ -211,6 +229,133 @@ export default function OrderDetailPage() {
             </Card>
           )}
 
+          {order.proposedPrice && order.priceChangeStatus === "pending" && (
+            <Card className="border-amber-500/50 bg-amber-500/5">
+              <CardContent className="py-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10">
+                    <AlertCircle className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-amber-500 mb-2">Fiyat Değişikliği Önerisi</h3>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-background/50">
+                        <span className="text-muted-foreground">Mevcut Fiyat:</span>
+                        <span className="font-medium text-foreground">₺{order.price}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <span className="text-muted-foreground">Önerilen Fiyat:</span>
+                        <span className="font-bold text-amber-600">₺{order.proposedPrice}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-background/50">
+                        <span className="text-muted-foreground">Fark:</span>
+                        <span className={`font-medium ${order.proposedPrice > order.price ? "text-red-500" : "text-green-500"}`}>
+                          {order.proposedPrice > order.price ? "+" : ""}₺{Math.abs(order.proposedPrice - order.price)}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => handlePriceChangeResponse(false)}
+                          disabled={priceActionLoading}
+                          className="flex-1 text-red-500 hover:text-red-500 hover:bg-red-500/10"
+                        >
+                          {priceActionLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Reddet"
+                          )}
+                        </Button>
+                        <Button
+                          onClick={() => handlePriceChangeResponse(true)}
+                          disabled={priceActionLoading}
+                          className="flex-1"
+                        >
+                          {priceActionLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Onayla
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {order.status === "in_production" && order.productionHours && order.productionStartedAt && (
+            <Card className="border-purple-500/50 bg-purple-500/5">
+              <CardContent className="py-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500/10">
+                    <Package className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-purple-500 mb-2">Üretim Bilgileri</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Toplam üretim süresi:</span>
+                        <span className="font-medium text-foreground">{order.productionHours} saat</span>
+                      </div>
+                      {(() => {
+                        const startedAt = order.productionStartedAt?.toDate ? order.productionStartedAt.toDate() : new Date(order.productionStartedAt)
+                        const endTime = new Date(startedAt.getTime() + order.productionHours * 60 * 60 * 1000)
+                        const now = new Date()
+                        const remainingMs = endTime.getTime() - now.getTime()
+                        const remainingHours = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60)))
+                        const estimatedDelivery = new Date(endTime.getTime() + 2 * 24 * 60 * 60 * 1000)
+                        
+                        return (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">Üretim başlangıcı:</span>
+                              <span className="font-medium text-foreground">
+                                {startedAt.toLocaleDateString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">Üretim bitişi:</span>
+                              <span className="font-medium text-foreground">
+                                {endTime.toLocaleDateString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                            {remainingMs > 0 ? (
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-purple-500" />
+                                <span className="text-muted-foreground">Kalan süre:</span>
+                                <span className="font-medium text-purple-500">{remainingHours} saat</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                <span className="text-green-500 font-medium">Üretim tamamlandı</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">Tahmini teslimat:</span>
+                              <span className="font-medium text-foreground">
+                                {estimatedDelivery.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })}
+                              </span>
+                            </div>
+                          </>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {order.status === "cancelled" && (
             <Card className="border-red-500/50 bg-red-500/5">
               <CardContent className="py-6">
@@ -234,7 +379,7 @@ export default function OrderDetailPage() {
               <CardTitle className="text-lg">Mesajlar</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] overflow-y-auto mb-4 space-y-3 p-3 rounded-lg bg-muted/30">
+              <div ref={messagesContainerRef} className="h-[300px] overflow-y-auto mb-4 space-y-3 p-3 rounded-lg bg-muted/30">
                 {messages.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                     Henüz mesaj yok. Provider ile iletişime geçin.
@@ -307,9 +452,24 @@ export default function OrderDetailPage() {
                 </div>
               </div>
               <div className="border-t pt-4">
-                <div className="flex justify-between">
-                  <p className="text-muted-foreground">Toplam</p>
-                  <p className="text-xl font-bold text-primary">₺{order.price}</p>
+                <div className="space-y-2">
+                  {order.proposedPrice && order.priceChangeStatus === "pending" && (
+                    <div className="flex justify-between items-center p-2 rounded-lg bg-amber-500/10">
+                      <p className="text-sm text-muted-foreground">Önerilen:</p>
+                      <p className="text-lg font-semibold text-amber-600">₺{order.proposedPrice}</p>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <p className="text-muted-foreground">Toplam</p>
+                    <div className="flex items-center gap-2">
+                      {order.proposedPrice && order.priceChangeStatus === "pending" && (
+                        <span className="text-sm line-through text-muted-foreground">₺{order.price}</span>
+                      )}
+                      <p className={`text-xl font-bold ${order.proposedPrice && order.priceChangeStatus === "pending" ? "text-amber-600" : "text-primary"}`}>
+                        ₺{order.proposedPrice && order.priceChangeStatus === "pending" ? order.proposedPrice : order.price}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>

@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle, Loader2, MessageSquare, Play, Check } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { useAuth } from "@/contexts/AuthContext"
 import { OrderService, Order, OrderStatus } from "@/lib/firebase/orders"
 
@@ -23,35 +25,46 @@ export default function ProviderOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<OrderStatus | "all">("all")
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [showProductionForm, setShowProductionForm] = useState<string | null>(null)
+  const [productionHours, setProductionHours] = useState("")
 
   useEffect(() => {
     if (user) {
-      fetchOrders()
+      setLoading(true)
+      const unsubscribe = OrderService.subscribeToProviderOrders(user.uid, (orders) => {
+        setOrders(orders)
+        setLoading(false)
+      })
+      
+      return () => {
+        unsubscribe()
+      }
     }
   }, [user])
 
-  const fetchOrders = async () => {
-    if (!user) return
-    setLoading(true)
-    try {
-      const data = await OrderService.getByProviderId(user.uid)
-      setOrders(data)
-    } catch (error) {
-      console.error(error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
+  const handleStatusChange = async (orderId: string, newStatus: OrderStatus, hours?: number) => {
     setActionLoading(orderId)
     try {
-      await OrderService.updateStatus(orderId, newStatus)
-      fetchOrders()
+      const additionalData: Partial<Order> = {}
+      if (newStatus === "in_production" && hours !== undefined) {
+        additionalData.productionHours = hours
+      }
+      await OrderService.updateStatus(orderId, newStatus, additionalData)
+      if (newStatus === "in_production") {
+        setShowProductionForm(null)
+        setProductionHours("")
+      }
     } catch (error) {
       console.error(error)
     } finally {
       setActionLoading(null)
+    }
+  }
+
+  const handleStartProduction = async (orderId: string) => {
+    const hours = parseFloat(productionHours)
+    if (hours > 0) {
+      await handleStatusChange(orderId, "in_production", hours)
     }
   }
 
@@ -171,7 +184,15 @@ export default function ProviderOrdersPage() {
                         {nextAction && (
                           <Button
                             size="sm"
-                            onClick={() => order.id && handleStatusChange(order.id, nextAction.nextStatus)}
+                            onClick={() => {
+                              if (order.id) {
+                                if (nextAction.nextStatus === "in_production") {
+                                  setShowProductionForm(order.id)
+                                } else {
+                                  handleStatusChange(order.id, nextAction.nextStatus)
+                                }
+                              }
+                            }}
                             disabled={actionLoading === order.id}
                             className="gap-1.5"
                           >
@@ -207,6 +228,57 @@ export default function ProviderOrdersPage() {
               </Card>
             )
           })}
+        </div>
+      )}
+
+      {showProductionForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md border-primary/50">
+            <CardHeader>
+              <CardTitle className="text-lg">Üretim Bilgileri</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="productionHours">Toplam Üretim Süresi (Saat) *</Label>
+                <Input
+                  id="productionHours"
+                  type="number"
+                  value={productionHours}
+                  onChange={(e) => setProductionHours(e.target.value)}
+                  placeholder="Örn: 5.5"
+                  min="0"
+                  step="0.1"
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">Makine kaç saat kullanılacak?</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => {
+                  setShowProductionForm(null)
+                  setProductionHours("")
+                }} className="flex-1">
+                  İptal
+                </Button>
+                <Button 
+                  onClick={() => showProductionForm && handleStartProduction(showProductionForm)} 
+                  disabled={!productionHours || parseFloat(productionHours) <= 0 || actionLoading === showProductionForm}
+                  className="flex-1"
+                >
+                  {actionLoading === showProductionForm ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      İşleniyor...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Üretime Başla
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

@@ -7,6 +7,8 @@ import Image from "next/image"
 import { Loader2, Mail, CheckCircle, RefreshCw } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { AuthService } from "@/lib/firebase/auth"
+import { UserService } from "@/lib/firebase/users"
+import { USE_EMULATOR } from "@/lib/firebase/config"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -20,13 +22,29 @@ export default function VerifyEmailPage() {
   const redirectUrl = searchParams.get("redirect") || "/customer"
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login")
+    const checkVerification = async () => {
+      if (!loading && !user) {
+        router.push("/login")
+        return
+      }
+      
+      if (user) {
+        if (USE_EMULATOR) {
+          const profile = await UserService.getUserProfile(user.uid)
+          if (profile?.isEmailVerified) {
+            window.location.href = redirectUrl
+            return
+          }
+        } else {
+          if (user.emailVerified) {
+            window.location.href = redirectUrl
+            return
+          }
+        }
+      }
     }
     
-    if (user?.emailVerified) {
-      window.location.href = redirectUrl
-    }
+    checkVerification()
   }, [user, loading, router, redirectUrl])
 
   const handleResendVerification = async () => {

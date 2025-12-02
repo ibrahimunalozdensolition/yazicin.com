@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, orderBy, where, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, orderBy, where, serverTimestamp, Timestamp, onSnapshot, Unsubscribe } from "firebase/firestore";
 import { db } from "./config";
 
 export type OrderStatus = "pending" | "accepted" | "in_production" | "shipped" | "delivered" | "cancelled";
@@ -36,6 +36,10 @@ export interface Order {
   trackingNumber?: string;
   trackingCompany?: string;
   notes?: string;
+  productionHours?: number;
+  productionStartedAt?: Timestamp;
+  proposedPrice?: number;
+  priceChangeStatus?: "pending" | "accepted" | "rejected";
   createdAt: Timestamp;
   updatedAt: Timestamp;
   acceptedAt?: Timestamp;
@@ -111,6 +115,8 @@ export const OrderService = {
 
     if (status === "accepted") {
       updateData.acceptedAt = serverTimestamp();
+    } else if (status === "in_production") {
+      updateData.productionStartedAt = serverTimestamp();
     } else if (status === "shipped") {
       updateData.shippedAt = serverTimestamp();
     } else if (status === "delivered") {
@@ -143,6 +149,62 @@ export const OrderService = {
       cancelledAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+  },
+
+  subscribeToOrder: (id: string, callback: (order: Order | null) => void): Unsubscribe => {
+    const docRef = doc(db, "orders", id);
+    return onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        callback({ id: docSnap.id, ...docSnap.data() } as Order);
+      } else {
+        callback(null);
+      }
+    });
+  },
+
+  subscribeToProviderOrders: (providerId: string, callback: (orders: Order[]) => void): Unsubscribe => {
+    const q = query(
+      collection(db, "orders"),
+      where("providerId", "==", providerId)
+    );
+    return onSnapshot(q, (snapshot) => {
+      const orders = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Order[];
+      const sortedOrders = orders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      callback(sortedOrders);
+    });
+  },
+
+  proposePriceChange: async (id: string, newPrice: number) => {
+    const docRef = doc(db, "orders", id);
+    await updateDoc(docRef, {
+      proposedPrice: newPrice,
+      priceChangeStatus: "pending",
+      updatedAt: serverTimestamp(),
+    });
+  },
+
+  respondToPriceChange: async (id: string, accept: boolean) => {
+    const docRef = doc(db, "orders", id);
+    const orderDoc = await getDoc(docRef);
+    if (!orderDoc.exists()) return;
+
+    const orderData = orderDoc.data() as Order;
+    const updateData: Record<string, any> = {
+      priceChangeStatus: accept ? "accepted" : "rejected",
+      updatedAt: serverTimestamp(),
+    };
+
+    if (accept && orderData.proposedPrice) {
+      updateData.price = orderData.proposedPrice;
+      updateData.proposedPrice = null;
+    } else if (!accept) {
+      updateData.proposedPrice = null;
+    }
+
+    await updateDoc(docRef, updateData);
   },
 };
 
