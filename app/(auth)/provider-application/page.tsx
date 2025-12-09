@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { ProviderApplicationService } from "@/lib/firebase/providerApplications"
 import { ilceler } from "@/lib/data/turkiye-ilce"
 import { printerBrands, getSortedBrands, getModelsByBrand } from "@/lib/data/printer-brands"
+import LocationPicker from "@/components/maps/LocationPicker"
 
 const printerSchema = z.object({
   brand: z.string().min(1, "Yazıcı markası seçiniz"),
@@ -32,6 +33,12 @@ const applicationSchema = z.object({
   district: z.string().min(1, "İlçe seçiniz"),
   address: z.string().min(10, "Adres en az 10 karakter olmalıdır"),
   experience: z.string().min(10, "Deneyiminizi en az 10 karakter ile açıklayınız"),
+  location: z.object({
+    lat: z.number(),
+    lng: z.number(),
+  }).refine((data) => data.lat !== 0 && data.lng !== 0, {
+    message: "Harita üzerinden konum seçiniz",
+  }),
 })
 
 type PrinterInfo = z.infer<typeof printerSchema>
@@ -61,6 +68,7 @@ export default function ProviderApplicationPage() {
   ])
   const [selectedCity, setSelectedCity] = useState<string>("")
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([])
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null)
 
   const formatPhoneNumber = (value: string) => {
     const numbers = value.replace(/\D/g, "")
@@ -77,6 +85,7 @@ export default function ProviderApplicationPage() {
     handleSubmit,
     setValue,
     control,
+    watch,
     formState: { errors },
   } = useForm<ApplicationFormValues>({
     resolver: zodResolver(applicationSchema),
@@ -84,6 +93,8 @@ export default function ProviderApplicationPage() {
       businessType: "individual",
     },
   })
+
+  const selectedDistrict = watch("district")
 
   const handlePrinterQuantityChange = (index: number, quantity: number) => {
     const newPrinters = [...printers]
@@ -172,6 +183,79 @@ export default function ProviderApplicationPage() {
       setError("Başvuru gönderilemedi. Lütfen tekrar deneyin.")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const normalizeCityName = (cityName: string): string | null => {
+    const cityMap: Record<string, string> = {
+      "Istanbul": "İstanbul",
+      "Izmir": "İzmir",
+      "Isparta": "Isparta",
+      "Igdir": "Iğdır",
+    }
+    
+    const normalized = cityMap[cityName] || cityName
+    
+    if (cities.includes(normalized)) {
+      return normalized
+    }
+    
+    const found = cities.find(c => 
+      c.toLowerCase().replace(/[ıi]/g, "i") === normalized.toLowerCase().replace(/[ıi]/g, "i")
+    )
+    
+    return found || null
+  }
+
+  const findMatchingDistrict = (districtName: string, availableDistricts: string[]): string | null => {
+    if (!districtName || availableDistricts.length === 0) return null
+
+    const normalizedInput = districtName
+      .replace(/ Merkez$/, "")
+      .replace(/ merkez$/, "")
+      .toLowerCase()
+      .replace(/[ıi]/g, "i")
+      .trim()
+
+    const exactMatch = availableDistricts.find(d => 
+      d.toLowerCase().replace(/[ıi]/g, "i") === normalizedInput
+    )
+    if (exactMatch) return exactMatch
+
+    const includesMatch = availableDistricts.find(d => 
+      d.toLowerCase().replace(/[ıi]/g, "i").includes(normalizedInput) ||
+      normalizedInput.includes(d.toLowerCase().replace(/[ıi]/g, "i"))
+    )
+    if (includesMatch) return includesMatch
+
+    const startsWithMatch = availableDistricts.find(d => 
+      d.toLowerCase().replace(/[ıi]/g, "i").startsWith(normalizedInput) ||
+      normalizedInput.startsWith(d.toLowerCase().replace(/[ıi]/g, "i"))
+    )
+    if (startsWithMatch) return startsWithMatch
+
+    return null
+  }
+
+  const handleLocationSelect = (location: { lat: number; lng: number }, addressInfo?: { city: string; district: string }) => {
+    setSelectedLocation(location)
+    setValue("location", location)
+    
+    if (addressInfo) {
+      const turkishCityName = normalizeCityName(addressInfo.city)
+      if (turkishCityName) {
+        setSelectedCity(turkishCityName)
+        setValue("city", turkishCityName)
+        const districts = ilceler[turkishCityName] || []
+        setAvailableDistricts(districts)
+        
+        if (addressInfo.district && districts.length > 0) {
+          const matchedDistrict = findMatchingDistrict(addressInfo.district, districts)
+          if (matchedDistrict) {
+            setValue("district", matchedDistrict)
+          }
+        }
+      }
     }
   }
 
@@ -528,6 +612,29 @@ export default function ProviderApplicationPage() {
                     <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
                     {errors.address.message}
                   </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Controller
+                name="location"
+                control={control}
+                rules={{ required: "Harita üzerinden konum seçiniz" }}
+                render={({ field, fieldState }) => (
+                  <LocationPicker
+                    onLocationSelect={handleLocationSelect}
+                    selectedLocation={selectedLocation}
+                    error={fieldState.error?.message}
+                    disabled={isLoading}
+                    city={selectedCity}
+                    district={selectedDistrict}
+                  />
+                )}
+              />
+              {errors.location && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
+                  {errors.location.message}
+                </p>
               )}
             </div>
           </CardContent>

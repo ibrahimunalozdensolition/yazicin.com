@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, addDoc, collection, serverTimestamp, connectFirestoreEmulator } from "firebase/firestore";
-import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { getFirestore, doc, setDoc, addDoc, collection, serverTimestamp, GeoPoint, connectFirestoreEmulator, query, where, getDocs, updateDoc } from "firebase/firestore";
+import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "demo-api-key",
@@ -51,6 +51,7 @@ async function seedCustomer() {
       fullAddress: "Caferağa Mah. Moda Cad. No:10 D:5",
       zipCode: "34710",
       isDefault: true,
+      location: new GeoPoint(40.9848, 29.0244),
       createdAt: serverTimestamp(),
     });
 
@@ -62,6 +63,7 @@ async function seedCustomer() {
       fullAddress: "Mecidiyeköy Mah. Büyükdere Cad. No:100",
       zipCode: "34387",
       isDefault: false,
+      location: new GeoPoint(41.0605, 28.9857),
       createdAt: serverTimestamp(),
     });
 
@@ -75,6 +77,11 @@ async function seedCustomer() {
   } catch (error: any) {
     if (error.code === "auth/email-already-in-use") {
       console.log("⚠️  customer@test.com zaten mevcut!");
+      console.log("\n💡 Telefon ve adres bilgilerini eklemek için:");
+      console.log("   1. http://localhost:3000 adresine gidin");
+      console.log("   2. Aşağıdaki bilgilerle giriş yapın");
+      console.log("   3. /customer-setup sayfasına yönlendirileceksiniz");
+      console.log("   4. Telefon ve adres bilgilerinizi ekleyin");
       console.log("\n📋 Giriş Bilgileri:");
       console.log("─".repeat(40));
       console.log("📧 E-posta: customer@test.com");

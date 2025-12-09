@@ -33,6 +33,7 @@ Provider olmak isteyen kullanıcıların başvuru bilgileri.
 | `city` | string | İl |
 | `district` | string | İlçe |
 | `address` | string | Açık adres |
+| `location` | GeoPoint | Harita üzerinden seçilen koordinat (lat, lng) |
 | `printerBrand` | string | Yazıcı markası |
 | `printerModel` | string | Yazıcı modeli |
 | `experience` | string | 3D baskı deneyimi açıklaması |
@@ -103,6 +104,7 @@ Kullanıcıların kayıtlı adresleri.
 | `district` | string | İlçe |
 | `fullAddress` | string | Açık adres |
 | `zipCode` | string | Posta kodu (opsiyonel) |
+| `location` | GeoPoint | Harita üzerinden seçilen koordinat (lat, lng) |
 | `isDefault` | boolean | Varsayılan adres mi? |
 | `createdAt` | timestamp | Oluşturulma tarihi |
 
@@ -124,7 +126,7 @@ Kullanıcıların kayıtlı adresleri.
 ```
 1. Register → users (role: customer)
 2. Email doğrulama
-3. customer-setup → users.phoneNumber + addresses koleksiyonu
+3. customer-setup → users.phoneNumber + addresses koleksiyonu (location GeoPoint ile)
 4. Customer paneli erişim
 ```
 
@@ -132,7 +134,7 @@ Kullanıcıların kayıtlı adresleri.
 ```
 1. Register → users (role: customer - geçici)
 2. Email doğrulama
-3. provider-application → providerApplications (status: pending)
+3. provider-application → providerApplications (status: pending, location GeoPoint ile)
 4. Admin onayı:
    - users.role → "provider"
    - users.phoneNumber güncellenir
@@ -157,7 +159,15 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isValidGeoPoint(value) {
+      return value is latlng && 
+             value.latitude is float && 
+             value.longitude is float &&
+             value.latitude >= -90 && value.latitude <= 90 &&
+             value.longitude >= -180 && value.longitude <= 180;
     }
 
     // Users koleksiyonu
@@ -169,21 +179,29 @@ service cloud.firestore {
     // Provider başvuruları
     match /providerApplications/{docId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       (!('location' in request.resource.data) || isValidGeoPoint(request.resource.data.location));
       allow update: if isAdmin();
     }
     
     // Providers koleksiyonu
     match /providers/{providerId} {
-      allow read: if true; // Provider listesi herkese açık
+      allow read: if true;
       allow create: if isAdmin();
       allow update: if (resource.data.userId == request.auth.uid) || isAdmin();
     }
     
     // Adresler
     match /addresses/{docId} {
-      allow read, write: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn();
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       (!('location' in request.resource.data) || isValidGeoPoint(request.resource.data.location));
+      allow update: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid &&
+                       (!('location' in request.resource.data) || isValidGeoPoint(request.resource.data.location));
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
     
     // İletişim formları

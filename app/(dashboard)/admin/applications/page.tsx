@@ -59,12 +59,12 @@ export default function AdminApplicationsPage() {
         status: "approved",
         approvedAt: serverTimestamp(),
       }).catch(async () => {
-        const { setDoc } = await import("firebase/firestore")
-        await setDoc(providerRef, {
+        const { setDoc, GeoPoint } = await import("firebase/firestore")
+        const providerData: any = {
           userId: app.userId,
           businessName: app.businessName,
           businessType: app.businessType,
-          bio: app.experience, // Deneyim bilgisini bio olarak kullan
+          bio: app.experience,
           status: "approved",
           createdAt: serverTimestamp(),
           approvedAt: serverTimestamp(),
@@ -75,14 +75,17 @@ export default function AdminApplicationsPage() {
             district: app.district,
             fullAddress: app.address,
           },
-          // Yazıcı bilgisi - sonradan printers koleksiyonuna taşınacak
           initialPrinter: {
             brand: app.printerBrand,
             model: app.printerModel,
           },
-          printers: [], // Yazıcı ID'leri (printers koleksiyonu kullanılınca doldurulacak)
-          bankAccount: null, // İleriki fazda doldurulacak
-        })
+          printers: [],
+          bankAccount: null,
+        }
+        if (app.location) {
+          providerData.location = new GeoPoint(app.location.latitude, app.location.longitude)
+        }
+        await setDoc(providerRef, providerData)
       })
       
       setSelectedApp(null)

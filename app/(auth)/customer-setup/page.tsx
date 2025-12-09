@@ -15,12 +15,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/contexts/AuthContext"
 import { UserService } from "@/lib/firebase/users"
 import { ilceler } from "@/lib/data/turkiye-ilce"
+import LocationPicker from "@/components/maps/LocationPicker"
+import { collection, query, where, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase/config"
 
 const setupSchema = z.object({
   phoneNumber: z.string().min(10, "Geçerli bir telefon numarası giriniz"),
   city: z.string().min(1, "İl seçiniz"),
   district: z.string().min(1, "İlçe seçiniz"),
   address: z.string().min(10, "Adres en az 10 karakter olmalıdır"),
+  location: z.object({
+    lat: z.number(),
+    lng: z.number(),
+  }).refine((data) => data.lat !== 0 && data.lng !== 0, {
+    message: "Harita üzerinden konum seçiniz",
+  }),
 })
 
 type SetupFormValues = z.infer<typeof setupSchema>
@@ -45,16 +54,21 @@ export default function CustomerSetupPage() {
   const [availableDistricts, setAvailableDistricts] = useState<string[]>([])
   const [isComplete, setIsComplete] = useState(false)
   const [checkingRole, setCheckingRole] = useState(true)
+  const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [hasExistingPhone, setHasExistingPhone] = useState(false)
 
   const {
     register,
     handleSubmit,
     setValue,
     control,
+    watch,
     formState: { errors },
   } = useForm<SetupFormValues>({
     resolver: zodResolver(setupSchema),
   })
+
+  const selectedDistrict = watch("district")
 
   const handleCityChange = (city: string) => {
     setSelectedCity(city)
@@ -72,58 +86,82 @@ export default function CustomerSetupPage() {
     }
   }, [isComplete])
 
-  // Tarayıcı geri tuşunu engelle
   useEffect(() => {
-    const handlePopState = (e: PopStateEvent) => {
-      if (!isComplete) {
-        window.history.pushState(null, "", window.location.href)
-      }
-    }
-
-    // İlk yüklemede history state ekle
-    window.history.pushState(null, "", window.location.href)
-    window.addEventListener("popstate", handlePopState)
+    if (isComplete) return
+    
     window.addEventListener("beforeunload", handleBeforeUnload)
 
     return () => {
-      window.removeEventListener("popstate", handlePopState)
       window.removeEventListener("beforeunload", handleBeforeUnload)
     }
   }, [isComplete, handleBeforeUnload])
 
   useEffect(() => {
+    if (!checkingRole) return
+
     const checkUserRole = async () => {
-    if (!authLoading && !user) {
-      router.push("/login?redirect=/customer-setup")
+      if (authLoading) return
+
+      if (!user) {
+        router.push("/login?redirect=/customer-setup")
+        setCheckingRole(false)
         return
       }
 
-      if (user) {
-        try {
-          const profile = await UserService.getUserProfile(user.uid)
-          if (profile) {
-            if (profile.role === "provider") {
-              router.push("/provider")
-              return
-            }
-            if (profile.role === "admin") {
-              router.push("/admin")
-              return
-            }
-            if (profile.phoneNumber) {
+      try {
+        const profile = await UserService.getUserProfile(user.uid)
+        if (profile) {
+          if (profile.role === "provider") {
+            router.push("/provider")
+            setCheckingRole(false)
+            return
+          }
+          if (profile.role === "admin") {
+            router.push("/admin")
+            setCheckingRole(false)
+            return
+          }
+          if (profile.phoneNumber) {
+            const addressQuery = query(
+              collection(db, "addresses"),
+              where("userId", "==", user.uid)
+            )
+            const addressSnapshot = await getDocs(addressQuery)
+            const hasAddress = !addressSnapshot.empty
+
+            if (hasAddress) {
               router.push("/customer")
+              setCheckingRole(false)
               return
             }
           }
-        } catch (error) {
-          console.error("Error checking user role:", error)
         }
-        setCheckingRole(false)
+      } catch (error) {
+        console.error("Error checking user role:", error)
       }
+      setCheckingRole(false)
     }
 
     checkUserRole()
   }, [user, authLoading, router])
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (!user || authLoading) return
+
+      try {
+        const profile = await UserService.getUserProfile(user.uid)
+        if (profile?.phoneNumber) {
+          setValue("phoneNumber", profile.phoneNumber)
+          setHasExistingPhone(true)
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error)
+      }
+    }
+
+    loadUserData()
+  }, [user, authLoading, setValue])
 
   const onSubmit = async (data: SetupFormValues) => {
     if (!user) return
@@ -137,7 +175,7 @@ export default function CustomerSetupPage() {
         phoneNumber: data.phoneNumber,
       })
       
-      const { addDoc, collection, serverTimestamp } = await import("firebase/firestore")
+      const { addDoc, collection, serverTimestamp, GeoPoint } = await import("firebase/firestore")
       const { db } = await import("@/lib/firebase/config")
       
       await addDoc(collection(db, "addresses"), {
@@ -148,6 +186,7 @@ export default function CustomerSetupPage() {
         fullAddress: data.address,
         zipCode: "",
         isDefault: true,
+        location: new GeoPoint(data.location.lat, data.location.lng),
         createdAt: serverTimestamp(),
       })
 
@@ -161,6 +200,79 @@ export default function CustomerSetupPage() {
       setError("Bilgiler kaydedilemedi. Lütfen tekrar deneyin.")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const normalizeCityName = (cityName: string): string | null => {
+    const cityMap: Record<string, string> = {
+      "Istanbul": "İstanbul",
+      "Izmir": "İzmir",
+      "Isparta": "Isparta",
+      "Igdir": "Iğdır",
+    }
+    
+    const normalized = cityMap[cityName] || cityName
+    
+    if (cities.includes(normalized)) {
+      return normalized
+    }
+    
+    const found = cities.find(c => 
+      c.toLowerCase().replace(/[ıi]/g, "i") === normalized.toLowerCase().replace(/[ıi]/g, "i")
+    )
+    
+    return found || null
+  }
+
+  const findMatchingDistrict = (districtName: string, availableDistricts: string[]): string | null => {
+    if (!districtName || availableDistricts.length === 0) return null
+
+    const normalizedInput = districtName
+      .replace(/ Merkez$/, "")
+      .replace(/ merkez$/, "")
+      .toLowerCase()
+      .replace(/[ıi]/g, "i")
+      .trim()
+
+    const exactMatch = availableDistricts.find(d => 
+      d.toLowerCase().replace(/[ıi]/g, "i") === normalizedInput
+    )
+    if (exactMatch) return exactMatch
+
+    const includesMatch = availableDistricts.find(d => 
+      d.toLowerCase().replace(/[ıi]/g, "i").includes(normalizedInput) ||
+      normalizedInput.includes(d.toLowerCase().replace(/[ıi]/g, "i"))
+    )
+    if (includesMatch) return includesMatch
+
+    const startsWithMatch = availableDistricts.find(d => 
+      d.toLowerCase().replace(/[ıi]/g, "i").startsWith(normalizedInput) ||
+      normalizedInput.startsWith(d.toLowerCase().replace(/[ıi]/g, "i"))
+    )
+    if (startsWithMatch) return startsWithMatch
+
+    return null
+  }
+
+  const handleLocationSelect = (location: { lat: number; lng: number }, addressInfo?: { city: string; district: string }) => {
+    setSelectedLocation(location)
+    setValue("location", location)
+    
+    if (addressInfo) {
+      const turkishCityName = normalizeCityName(addressInfo.city)
+      if (turkishCityName) {
+        setSelectedCity(turkishCityName)
+        setValue("city", turkishCityName)
+        const districts = ilceler[turkishCityName] || []
+        setAvailableDistricts(districts)
+        
+        if (addressInfo.district && districts.length > 0) {
+          const matchedDistrict = findMatchingDistrict(addressInfo.district, districts)
+          if (matchedDistrict) {
+            setValue("district", matchedDistrict)
+          }
+        }
+      }
     }
   }
 
@@ -265,11 +377,17 @@ export default function CustomerSetupPage() {
                   <Input 
                     id="phoneNumber" 
                     placeholder="05XX XXX XX XX" 
-                    disabled={isLoading}
-                    className="h-11 pl-10 border-border/50 focus:border-primary/50 transition-colors"
+                    disabled={isLoading || hasExistingPhone}
+                    className={`h-11 pl-10 border-border/50 focus:border-primary/50 transition-colors ${hasExistingPhone ? 'bg-muted/30' : ''}`}
                     {...register("phoneNumber")}
                   />
                 </div>
+                {hasExistingPhone && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <span className="inline-block w-1 h-1 rounded-full bg-muted-foreground" />
+                    Telefon numaranız kayıtlı
+                  </p>
+                )}
                 {errors.phoneNumber && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
@@ -360,6 +478,29 @@ export default function CustomerSetupPage() {
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
                     {errors.address.message}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Controller
+                  name="location"
+                  control={control}
+                  rules={{ required: "Harita üzerinden konum seçiniz" }}
+                  render={({ field, fieldState }) => (
+                    <LocationPicker
+                      onLocationSelect={handleLocationSelect}
+                      selectedLocation={selectedLocation}
+                      error={fieldState.error?.message}
+                      disabled={isLoading}
+                      city={selectedCity}
+                      district={selectedDistrict}
+                    />
+                  )}
+                />
+                {errors.location && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <span className="inline-block w-1 h-1 rounded-full bg-destructive" />
+                    {errors.location.message}
                   </p>
                 )}
               </div>

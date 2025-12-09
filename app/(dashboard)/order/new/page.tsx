@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import dynamic from "next/dynamic"
@@ -15,8 +15,9 @@ import { StorageService, UploadProgress } from "@/lib/firebase/storage"
 import { MATERIALS, COLORS, PrinterService, Printer as PrinterType } from "@/lib/firebase/printers"
 import { OrderService } from "@/lib/firebase/orders"
 import { UserService } from "@/lib/firebase/users"
-import { collection, getDocs, query, where } from "firebase/firestore"
+import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase/config"
+import { GoogleMap, useLoadScript, Marker, OverlayView } from "@react-google-maps/api"
 
 const STLViewer = dynamic(() => import("@/components/3d/STLViewer"), {
   ssr: false,
@@ -43,6 +44,8 @@ interface ProviderWithPrinter {
   rating: number
   completedOrders: number
   estimatedPrice: number
+  location?: { latitude: number; longitude: number }
+  distance?: number
 }
 
 interface Address {
@@ -52,11 +55,15 @@ interface Address {
   district: string
   fullAddress: string
   isDefault: boolean
+  location?: { latitude: number; longitude: number }
 }
 
 export default function NewOrderPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const { isLoaded: mapsLoaded } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+  })
   const [step, setStep] = useState(1)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -80,6 +87,7 @@ export default function NewOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -99,7 +107,7 @@ export default function NewOrderPage() {
     if (step === 3 && printSettings.material && modelInfo) {
       fetchProviders()
     }
-  }, [step, printSettings.material, printSettings.infill, printSettings.quality, printSettings.quantity, modelInfo])
+  }, [step, printSettings.material, printSettings.infill, printSettings.quality, printSettings.quantity, modelInfo, userLocation])
 
   useEffect(() => {
     if (step === 3 && selectedProvider && modelInfo) {
@@ -118,7 +126,7 @@ export default function NewOrderPage() {
   }, [printSettings.infill, printSettings.quality, printSettings.quantity, modelInfo, step])
 
   useEffect(() => {
-    if (step === 4 && user) {
+    if ((step === 3 || step === 4) && user) {
       fetchAddresses()
     }
   }, [step, user])
@@ -150,22 +158,42 @@ export default function NewOrderPage() {
     return Math.max(days, 1)
   }
 
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLon = (lon2 - lon1) * Math.PI / 180
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+    return R * c
+  }
+
   const fetchProviders = async () => {
+    console.log("🔍 fetchProviders çağrıldı, malzeme:", printSettings.material)
     setLoadingProviders(true)
     try {
       const activePrinters = await PrinterService.getActive()
+      console.log("📦 Aktif yazıcı sayısı:", activePrinters.length)
+      
+      const filteredPrinters = printSettings.material 
+        ? activePrinters.filter(printer => 
+            printer.materials.includes(printSettings.material)
+          )
+        : activePrinters
+      
+      console.log("✅ Filtrelenen yazıcı sayısı:", filteredPrinters.length)
       
       const providersMap = new Map<string, ProviderWithPrinter>()
       
-      for (const printer of activePrinters) {
+      for (const printer of filteredPrinters) {
         if (!providersMap.has(printer.providerId)) {
-          const providerDoc = await getDocs(query(
-            collection(db, "providers"),
-            where("userId", "==", printer.providerId)
-          ))
+          const providerDocRef = doc(db, "providers", printer.providerId)
+          const providerDoc = await getDoc(providerDocRef)
           
-          if (!providerDoc.empty) {
-            const providerData = providerDoc.docs[0].data()
+          if (providerDoc.exists()) {
+            const providerData = providerDoc.data()
             const modelWeight = modelInfo?.weight || 0
             const estimatedPrice = calculatePrice(
               printer,
@@ -175,6 +203,17 @@ export default function NewOrderPage() {
               printSettings.quantity
             )
             
+            const providerLocation = providerData.location
+            let distance = undefined
+            if (userLocation && providerLocation) {
+              distance = calculateDistance(
+                userLocation.lat,
+                userLocation.lng,
+                providerLocation.latitude,
+                providerLocation.longitude
+              )
+            }
+
             providersMap.set(printer.providerId, {
               providerId: printer.providerId,
               providerName: providerData.businessName || "Provider",
@@ -184,14 +223,29 @@ export default function NewOrderPage() {
               rating: providerData.rating || 0,
               completedOrders: providerData.completedOrders || 0,
               estimatedPrice,
+              location: providerLocation,
+              distance,
             })
+          } else {
+            console.warn("⚠️ Provider bulunamadı:", printer.providerId)
           }
         }
       }
       
-      setProviders(Array.from(providersMap.values()))
+      let finalProviders = Array.from(providersMap.values())
+      
+      if (userLocation) {
+        finalProviders.sort((a, b) => {
+          if (a.distance === undefined) return 1
+          if (b.distance === undefined) return -1
+          return a.distance - b.distance
+        })
+      }
+      
+      console.log("🎯 Final provider sayısı:", finalProviders.length)
+      setProviders(finalProviders)
     } catch (error) {
-      console.error("Error fetching providers:", error)
+      console.error("❌ Error fetching providers:", error)
     } finally {
       setLoadingProviders(false)
     }
@@ -209,7 +263,15 @@ export default function NewOrderPage() {
       })) as Address[]
       setAddresses(addressList)
       const defaultAddr = addressList.find(a => a.isDefault)
-      if (defaultAddr) setSelectedAddress(defaultAddr)
+      if (defaultAddr) {
+        setSelectedAddress(defaultAddr)
+        if (defaultAddr.location) {
+          setUserLocation({ 
+            lat: defaultAddr.location.latitude, 
+            lng: defaultAddr.location.longitude 
+          })
+        }
+      }
     } catch (error) {
       console.error("Error fetching addresses:", error)
     } finally {
@@ -389,8 +451,8 @@ export default function NewOrderPage() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
+      <div className={step === 3 ? "space-y-6" : "grid lg:grid-cols-2 gap-8"}>
+        <div className={step === 3 ? "grid lg:grid-cols-2 gap-6" : "space-y-6"}>
           {step === 1 && (
             <Card className="border-border/50">
               <CardHeader>
@@ -562,97 +624,154 @@ export default function NewOrderPage() {
           )}
 
           {step === 3 && (
-            <Card className="border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Printer className="h-5 w-5 text-muted-foreground" />
-                  Adım 3: Yazıcı Seçimi
-                </CardTitle>
-                <CardDescription>
-                  Size en uygun yazıcıyı seçin
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {loadingProviders ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : providers.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Printer className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground mb-2">Uygun yazıcı bulunamadı</p>
-                    <p className="text-sm text-muted-foreground">Farklı baskı ayarları deneyin</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {providers.map((provider) => (
-                      <button
-                        key={provider.providerId}
-                        type="button"
-                        onClick={() => setSelectedProvider(provider)}
-                        className={`w-full p-4 rounded-xl border text-left transition-all ${
-                          selectedProvider?.providerId === provider.providerId
-                            ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
-                            : "border-border hover:border-primary/50 hover:bg-muted/50"
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h3 className="font-semibold text-foreground">{provider.providerName}</h3>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {provider.city}, {provider.district}
-                            </div>
-                            {modelInfo && (
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                                <Clock className="h-3 w-3" />
-                                {calculateDeliveryTime(
-                                  modelInfo.weight,
-                                  printSettings.infill,
-                                  printSettings.quality,
-                                  printSettings.quantity
-                                )} gün teslimat
+            <>
+              <Card className="border-border/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Printer className="h-5 w-5 text-muted-foreground" />
+                    Adım 3: Yazıcı Seçimi
+                  </CardTitle>
+                  <CardDescription>
+                    Size en uygun yazıcıyı seçin
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {loadingProviders ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : providers.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Printer className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground mb-2">Uygun yazıcı bulunamadı</p>
+                      <p className="text-sm text-muted-foreground">Farklı baskı ayarları deneyin</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                      {providers.map((provider) => (
+                        <button
+                          key={provider.providerId}
+                          type="button"
+                          onClick={() => setSelectedProvider(provider)}
+                          className={`w-full p-4 rounded-xl border text-left transition-all ${
+                            selectedProvider?.providerId === provider.providerId
+                              ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
+                              : "border-border hover:border-primary/50 hover:bg-muted/50"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h3 className="font-semibold text-foreground">{provider.providerName}</h3>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                                <MapPin className="h-3.5 w-3.5" />
+                                {provider.city}, {provider.district}
+                                {provider.distance && (
+                                  <span className="text-xs">• {provider.distance.toFixed(1)} km</span>
+                                )}
                               </div>
-                            )}
+                              {modelInfo && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                  <Clock className="h-3 w-3" />
+                                  {calculateDeliveryTime(
+                                    modelInfo.weight,
+                                    printSettings.infill,
+                                    printSettings.quality,
+                                    printSettings.quantity
+                                  )} gün teslimat
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xl font-bold text-primary">₺{provider.estimatedPrice}</p>
+                              <p className="text-xs text-muted-foreground">Tahmini</p>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-xl font-bold text-primary">₺{provider.estimatedPrice}</p>
-                            <p className="text-xs text-muted-foreground">Tahmini</p>
+                          <div className="flex items-center gap-4 text-sm flex-wrap">
+                            <div className="flex items-center gap-1">
+                              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                              <span className="font-medium">{Number(provider.rating).toFixed(1)}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <CheckCircle className="h-4 w-4" />
+                              <span>{provider.completedOrders} sipariş</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <Printer className="h-4 w-4" />
+                              <span>{provider.printer.brand} {provider.printer.model}</span>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                            <span className="font-medium">{Number(provider.rating).toFixed(1)}</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <CheckCircle className="h-4 w-4" />
-                            <span>{provider.completedOrders} sipariş</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Printer className="h-4 w-4" />
-                            <span>{provider.printer.brand} {provider.printer.model}</span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
-                <div className="flex gap-4 pt-4">
-                  <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
-                    Geri
-                  </Button>
-                  <Button 
-                    onClick={() => setStep(4)} 
-                    disabled={!selectedProvider}
-                    className="flex-1"
-                  >
-                    Devam Et
-                  </Button>
+                  <div className="flex gap-4 pt-4">
+                    <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
+                      Geri
+                    </Button>
+                    <Button 
+                      onClick={() => setStep(4)} 
+                      disabled={!selectedProvider}
+                      className="flex-1"
+                    >
+                      Devam Et
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {!loadingProviders && providers.length > 0 && (
+                <div className="h-[600px] rounded-xl overflow-hidden border border-border">
+                  {mapsLoaded && userLocation ? (
+                    <GoogleMap
+                      mapContainerStyle={{ width: "100%", height: "100%" }}
+                      center={userLocation}
+                      zoom={10}
+                      options={{
+                        zoomControl: true,
+                        streetViewControl: false,
+                        mapTypeControl: false,
+                        fullscreenControl: false,
+                      }}
+                    >
+                      <Marker
+                        position={userLocation}
+                        icon={{
+                          url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%234F46E5'%3E%3Cpath d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z'/%3E%3C/svg%3E",
+                          scaledSize: new google.maps.Size(32, 32),
+                        }}
+                      />
+                      {providers.map((provider) => 
+                        provider.location && (
+                          <Marker
+                            key={provider.providerId}
+                            position={{
+                              lat: provider.location.latitude,
+                              lng: provider.location.longitude,
+                            }}
+                            onClick={() => setSelectedProvider(provider)}
+                            icon={{
+                              url: selectedProvider?.providerId === provider.providerId
+                                ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%2310B981'%3E%3Cpath d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z'/%3E%3C/svg%3E"
+                                : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%23EF4444'%3E%3Cpath d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z'/%3E%3C/svg%3E",
+                              scaledSize: new google.maps.Size(
+                                selectedProvider?.providerId === provider.providerId ? 40 : 32,
+                                selectedProvider?.providerId === provider.providerId ? 40 : 32
+                              ),
+                            }}
+                            title={`${provider.providerName} - ₺${provider.estimatedPrice}`}
+                          />
+                        )
+                      )}
+                    </GoogleMap>
+                  ) : (
+                    <div className="flex items-center justify-center h-full bg-muted">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </>
           )}
 
           {step === 4 && (
@@ -802,101 +921,103 @@ export default function NewOrderPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="sticky top-24">
-            <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-2xl shadow-primary/10">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/20 via-transparent to-transparent opacity-60" />
-              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-              
-              <div className="relative p-4 border-b border-white/10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
-                        <Box className="h-5 w-5 text-white" />
+          {step !== 3 && (
+            <div className="sticky top-24">
+              <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-2xl shadow-primary/10">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/20 via-transparent to-transparent opacity-60" />
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                
+                <div className="relative p-4 border-b border-white/10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30">
+                          <Box className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-slate-900 animate-pulse" />
                       </div>
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-slate-900 animate-pulse" />
+                      <div>
+                        <h3 className="font-semibold text-white">3D Önizleme</h3>
+                        <p className="text-xs text-white/50">Gerçek zamanlı görüntüleme</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-white">3D Önizleme</h3>
-                      <p className="text-xs text-white/50">Gerçek zamanlı görüntüleme</p>
-                    </div>
+                    {selectedFile && (
+                      <div className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/10">
+                        <span className="text-xs font-medium text-white/70">{selectedFile.name}</span>
+                      </div>
+                    )}
                   </div>
-                  {selectedFile && (
-                    <div className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/10">
-                      <span className="text-xs font-medium text-white/70">{selectedFile.name}</span>
-                    </div>
-                  )}
                 </div>
-              </div>
 
-              <div className="relative p-4">
-                <div className="flex justify-center">
-                  {previewUrl ? (
-                    <STLViewer 
-                      url={previewUrl} 
-                      material={printSettings.material || "PLA"}
-                      color={printSettings.color === "Kırmızı" ? "#ef4444" : 
-                             printSettings.color === "Mavi" ? "#3b82f6" : 
-                             printSettings.color === "Yeşil" ? "#22c55e" : 
-                             printSettings.color === "Sarı" ? "#eab308" :
-                             printSettings.color === "Turuncu" ? "#f97316" :
-                             printSettings.color === "Mor" ? "#a855f7" :
-                             printSettings.color === "Beyaz" ? "#f5f5f5" :
-                             printSettings.color === "Siyah" ? "#1a1a1a" :
-                             "#3b82f6"}
-                      onModelLoad={handleModelLoad}
-                    />
-                  ) : (
-                    <div className="w-full max-w-[400px] h-[300px] rounded-2xl bg-slate-800/50 border border-white/5 flex items-center justify-center">
-                      <div className="text-center px-6">
-                        <div className="relative mb-4">
-                          <div className="w-16 h-16 mx-auto rounded-xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm">
-                            <Box className="h-7 w-7 text-white/30" />
-                          </div>
-                          <div className="absolute -top-1 -right-1 w-6 h-6 rounded-md bg-primary/20 border border-primary/30 flex items-center justify-center animate-bounce">
-                            <Upload className="h-3 w-3 text-primary" />
-                          </div>
-                        </div>
-                        <p className="text-white/60 font-medium mb-1 text-sm">Model Bekleniyor</p>
-                        <p className="text-xs text-white/40 max-w-[180px] mx-auto">
-                          STL dosyanızı yükleyin
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {modelInfo && (
-                <div className="relative p-4 border-t border-white/10">
+                <div className="relative p-4">
                   <div className="flex justify-center">
-                    <div className="group relative p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all duration-300 w-full max-w-md">
-                      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                            <Box className="h-5 w-5 text-primary" />
+                    {previewUrl ? (
+                      <STLViewer 
+                        url={previewUrl} 
+                        material={printSettings.material || "PLA"}
+                        color={printSettings.color === "Kırmızı" ? "#ef4444" : 
+                               printSettings.color === "Mavi" ? "#3b82f6" : 
+                               printSettings.color === "Yeşil" ? "#22c55e" : 
+                               printSettings.color === "Sarı" ? "#eab308" :
+                               printSettings.color === "Turuncu" ? "#f97316" :
+                               printSettings.color === "Mor" ? "#a855f7" :
+                               printSettings.color === "Beyaz" ? "#f5f5f5" :
+                               printSettings.color === "Siyah" ? "#1a1a1a" :
+                               "#3b82f6"}
+                        onModelLoad={handleModelLoad}
+                      />
+                    ) : (
+                      <div className="w-full max-w-[400px] h-[300px] rounded-2xl bg-slate-800/50 border border-white/5 flex items-center justify-center">
+                        <div className="text-center px-6">
+                          <div className="relative mb-4">
+                            <div className="w-16 h-16 mx-auto rounded-xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm">
+                              <Box className="h-7 w-7 text-white/30" />
+                            </div>
+                            <div className="absolute -top-1 -right-1 w-6 h-6 rounded-md bg-primary/20 border border-primary/30 flex items-center justify-center animate-bounce">
+                              <Upload className="h-3 w-3 text-primary" />
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-xs uppercase tracking-wider text-white/40 font-medium block mb-1">Ortalama Gramaj</span>
-                            <p className="text-sm text-white/50">{printSettings.infill}% doluluk</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-white">
-                            {(modelInfo.weight * (printSettings.infill / 100)).toFixed(1)}
-                            <span className="text-base font-normal text-white/50 ml-1">g</span>
+                          <p className="text-white/60 font-medium mb-1 text-sm">Model Bekleniyor</p>
+                          <p className="text-xs text-white/40 max-w-[180px] mx-auto">
+                            STL dosyanızı yükleyin
                           </p>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
-              )}
 
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+                {modelInfo && (
+                  <div className="relative p-4 border-t border-white/10">
+                    <div className="flex justify-center">
+                      <div className="group relative p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all duration-300 w-full max-w-md">
+                        <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="relative flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                              <Box className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <span className="text-xs uppercase tracking-wider text-white/40 font-medium block mb-1">Ortalama Gramaj</span>
+                              <p className="text-sm text-white/50">{printSettings.infill}% doluluk</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-white">
+                              {(modelInfo.weight * (printSettings.infill / 100)).toFixed(1)}
+                              <span className="text-base font-normal text-white/50 ml-1">g</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

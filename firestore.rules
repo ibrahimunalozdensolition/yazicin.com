@@ -2,17 +2,79 @@ rules_version='2'
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isValidGeoPoint(value) {
+      return value is latlng;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+    
+    match /providerApplications/{docId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       (!('location' in request.resource.data) || isValidGeoPoint(request.resource.data.location));
+      allow update: if isAdmin();
+    }
+    
+    match /providers/{providerId} {
+      allow read: if true;
+      allow create: if (isSignedIn() && request.resource.data.userId == request.auth.uid) || isAdmin();
+      allow update: if ((resource.data.userId == request.auth.uid) || isAdmin()) &&
+                       (!('location' in request.resource.data) || isValidGeoPoint(request.resource.data.location));
+    }
+    
+    match /addresses/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       (!('location' in request.resource.data) || isValidGeoPoint(request.resource.data.location));
+      allow update: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid &&
+                       (!('location' in request.resource.data) || isValidGeoPoint(request.resource.data.location));
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+    
+    match /contactForms/{docId} {
+      allow create: if true;
+      allow read: if isAdmin();
+    }
+    
+    match /orders/{orderId} {
+      allow read: if isSignedIn() && 
+                     (resource.data.customerId == request.auth.uid || 
+                      resource.data.providerId == request.auth.uid || 
+                      isAdmin());
+      allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
+      allow update: if isSignedIn() && 
+                       (resource.data.providerId == request.auth.uid || 
+                        resource.data.customerId == request.auth.uid || 
+                        isAdmin());
+    }
+    
+    match /printers/{printerId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.providerId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.providerId == request.auth.uid;
+    }
+    
     match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2025, 12, 30);
+      allow read, write: if false;
     }
   }
 }

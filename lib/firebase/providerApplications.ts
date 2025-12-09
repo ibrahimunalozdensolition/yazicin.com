@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, orderBy, where, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, orderBy, where, serverTimestamp, Timestamp, GeoPoint } from "firebase/firestore";
 import { db } from "./config";
 
 export type ApplicationStatus = "pending" | "approved" | "rejected";
@@ -20,6 +20,7 @@ export interface ProviderApplication {
   city: string;
   district: string;
   address: string;
+  location?: GeoPoint;
   printerBrand: string;
   printerModel: string;
   printers?: PrinterInfo[];
@@ -32,12 +33,19 @@ export interface ProviderApplication {
 }
 
 export const ProviderApplicationService = {
-  submit: async (data: Omit<ProviderApplication, "id" | "status" | "createdAt">) => {
-    const docRef = await addDoc(collection(db, "providerApplications"), {
-      ...data,
+  submit: async (data: Omit<ProviderApplication, "id" | "status" | "createdAt"> & { location?: { lat: number; lng: number } }) => {
+    const { location, ...restData } = data;
+    const docData: any = {
+      ...restData,
       status: "pending",
       createdAt: serverTimestamp(),
-    });
+    };
+    
+    if (location) {
+      docData.location = new GeoPoint(location.lat, location.lng);
+    }
+    
+    const docRef = await addDoc(collection(db, "providerApplications"), docData);
     return docRef.id;
   },
 
