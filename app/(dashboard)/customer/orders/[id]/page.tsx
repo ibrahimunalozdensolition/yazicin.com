@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle, Loader2, Send, MapPin, Printer, Star, DollarSign, AlertCircle } from "lucide-react"
+import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle, Loader2, Send, MapPin, Printer, Star } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,7 @@ const statusConfig: Record<OrderStatus, { label: string; color: string; icon: an
   pending: { label: "Onay Bekliyor", color: "text-amber-500", icon: Clock, step: 1 },
   accepted: { label: "Onaylandı", color: "text-blue-500", icon: CheckCircle, step: 2 },
   in_production: { label: "Üretimde", color: "text-purple-500", icon: Package, step: 3 },
-  shipped: { label: "Kargoda", color: "text-cyan-500", icon: Truck, step: 4 },
+  shipped: { label: "Üretim Bitti", color: "text-cyan-500", icon: CheckCircle, step: 4 },
   delivered: { label: "Teslim Edildi", color: "text-green-500", icon: CheckCircle, step: 5 },
   cancelled: { label: "İptal Edildi", color: "text-red-500", icon: XCircle, step: 0 },
 }
@@ -25,7 +25,7 @@ const steps = [
   { status: "pending", label: "Onay Bekliyor" },
   { status: "accepted", label: "Onaylandı" },
   { status: "in_production", label: "Üretimde" },
-  { status: "shipped", label: "Kargoda" },
+  { status: "shipped", label: "Üretim Bitti" },
   { status: "delivered", label: "Teslim Edildi" },
 ]
 
@@ -39,7 +39,7 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [hasReviewed, setHasReviewed] = useState(false)
-  const [priceActionLoading, setPriceActionLoading] = useState(false)
+  const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0, milliseconds: 0 })
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
@@ -76,6 +76,35 @@ export default function OrderDetailPage() {
     setTimeout(() => scrollToBottom(), 100)
   }, [messages])
 
+  useEffect(() => {
+    if (order?.status === "in_production" && order.productionStartedAt && order.productionHours) {
+      const productionHours = order.productionHours
+      const productionStartedAt = order.productionStartedAt
+      
+      const interval = setInterval(() => {
+        if (!productionStartedAt || !productionHours) return
+        
+        const startedAt = (productionStartedAt as any)?.toDate 
+          ? (productionStartedAt as any).toDate() 
+          : new Date(productionStartedAt as any)
+        const endTime = new Date(startedAt.getTime() + productionHours * 60 * 60 * 1000)
+        const now = new Date()
+        const remainingMs = Math.max(0, endTime.getTime() - now.getTime())
+        
+        const hours = Math.floor(remainingMs / (1000 * 60 * 60))
+        const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60))
+        const seconds = Math.floor((remainingMs % (1000 * 60)) / 1000)
+        const milliseconds = Math.floor((remainingMs % 1000) / 10)
+        
+        setCountdown({ hours, minutes, seconds, milliseconds })
+      }, 10)
+      
+      return () => clearInterval(interval)
+    } else {
+      setCountdown({ hours: 0, minutes: 0, seconds: 0, milliseconds: 0 })
+    }
+  }, [order])
+
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
@@ -103,18 +132,6 @@ export default function OrderDetailPage() {
     }
   }
 
-  const handlePriceChangeResponse = async (accept: boolean) => {
-    if (!order?.id) return
-    setPriceActionLoading(true)
-    try {
-      await OrderService.respondToPriceChange(order.id, accept)
-    } catch (error) {
-      console.error(error)
-    } finally {
-      setPriceActionLoading(false)
-    }
-  }
-
   const formatDate = (timestamp: any) => {
     if (!timestamp) return "-"
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
@@ -125,6 +142,20 @@ export default function OrderDetailPage() {
     if (!timestamp) return ""
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
     return date.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+  }
+
+  const formatProductionTime = (hours: number | undefined) => {
+    if (!hours || hours === 0) return "0 dakika"
+    const totalMinutes = Math.round(hours * 60)
+    if (totalMinutes < 60) {
+      return `${totalMinutes} dakika`
+    }
+    const productionHours = Math.floor(totalMinutes / 60)
+    const remainingMinutes = totalMinutes % 60
+    if (remainingMinutes === 0) {
+      return `${productionHours} saat`
+    }
+    return `${productionHours} saat ${remainingMinutes} dakika`
   }
 
   if (loading) {
@@ -229,65 +260,6 @@ export default function OrderDetailPage() {
             </Card>
           )}
 
-          {order.proposedPrice && order.priceChangeStatus === "pending" && (
-            <Card className="border-amber-500/50 bg-amber-500/5">
-              <CardContent className="py-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10">
-                    <AlertCircle className="h-5 w-5 text-amber-500" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-amber-500 mb-2">Fiyat Değişikliği Önerisi</h3>
-                    <div className="space-y-3 text-sm">
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-background/50">
-                        <span className="text-muted-foreground">Mevcut Fiyat:</span>
-                        <span className="font-medium text-foreground">₺{order.price}</span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                        <span className="text-muted-foreground">Önerilen Fiyat:</span>
-                        <span className="font-bold text-amber-600">₺{order.proposedPrice}</span>
-                      </div>
-                      <div className="flex items-center justify-between p-2 rounded-lg bg-background/50">
-                        <span className="text-muted-foreground">Fark:</span>
-                        <span className={`font-medium ${order.proposedPrice > order.price ? "text-red-500" : "text-green-500"}`}>
-                          {order.proposedPrice > order.price ? "+" : ""}₺{Math.abs(order.proposedPrice - order.price)}
-                        </span>
-                      </div>
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => handlePriceChangeResponse(false)}
-                          disabled={priceActionLoading}
-                          className="flex-1 text-red-500 hover:text-red-500 hover:bg-red-500/10"
-                        >
-                          {priceActionLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            "Reddet"
-                          )}
-                        </Button>
-                        <Button
-                          onClick={() => handlePriceChangeResponse(true)}
-                          disabled={priceActionLoading}
-                          className="flex-1"
-                        >
-                          {priceActionLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : (
-                            <>
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Onayla
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {order.status === "in_production" && order.productionHours && order.productionStartedAt && (
             <Card className="border-purple-500/50 bg-purple-500/5">
               <CardContent className="py-6">
@@ -301,11 +273,15 @@ export default function OrderDetailPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-muted-foreground">Toplam üretim süresi:</span>
-                        <span className="font-medium text-foreground">{order.productionHours} saat</span>
+                        <span className="font-medium text-foreground">{formatProductionTime(order.productionHours)}</span>
                       </div>
                       {(() => {
-                        const startedAt = order.productionStartedAt?.toDate ? order.productionStartedAt.toDate() : new Date(order.productionStartedAt)
-                        const endTime = new Date(startedAt.getTime() + order.productionHours * 60 * 60 * 1000)
+                        if (!order.productionStartedAt || !order.productionHours) return null
+                        
+                        const startedAt = (order.productionStartedAt as any)?.toDate 
+                          ? (order.productionStartedAt as any).toDate() 
+                          : new Date(order.productionStartedAt as any)
+                        const endTime = new Date(startedAt.getTime() + (order.productionHours || 0) * 60 * 60 * 1000)
                         const now = new Date()
                         const remainingMs = endTime.getTime() - now.getTime()
                         const remainingHours = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60)))
@@ -320,18 +296,41 @@ export default function OrderDetailPage() {
                                 {startedAt.toLocaleDateString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-muted-foreground">Üretim bitişi:</span>
-                              <span className="font-medium text-foreground">
-                                {endTime.toLocaleDateString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                              </span>
-                            </div>
                             {remainingMs > 0 ? (
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-purple-500" />
-                                <span className="text-muted-foreground">Kalan süre:</span>
-                                <span className="font-medium text-purple-500">{remainingHours} saat</span>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4 text-purple-500" />
+                                  <span className="text-muted-foreground">Kalan süre:</span>
+                                </div>
+                                <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-purple-500/10">
+                                  <div className="text-center">
+                                    <div className="text-3xl font-bold text-purple-500 tabular-nums">
+                                      {String(countdown.hours).padStart(2, '0')}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground">Saat</div>
+                                  </div>
+                                  <div className="text-2xl font-bold text-purple-500">:</div>
+                                  <div className="text-center">
+                                    <div className="text-3xl font-bold text-purple-500 tabular-nums">
+                                      {String(countdown.minutes).padStart(2, '0')}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground">Dakika</div>
+                                  </div>
+                                  <div className="text-2xl font-bold text-purple-500">:</div>
+                                  <div className="text-center">
+                                    <div className="text-3xl font-bold text-purple-500 tabular-nums">
+                                      {String(countdown.seconds).padStart(2, '0')}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground">Saniye</div>
+                                  </div>
+                                  <div className="text-2xl font-bold text-purple-500">:</div>
+                                  <div className="text-center">
+                                    <div className="text-3xl font-bold text-purple-500 tabular-nums">
+                                      {String(countdown.milliseconds).padStart(2, '0')}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground">Salise</div>
+                                  </div>
+                                </div>
                               </div>
                             ) : (
                               <div className="flex items-center gap-2">
@@ -339,13 +338,6 @@ export default function OrderDetailPage() {
                                 <span className="text-green-500 font-medium">Üretim tamamlandı</span>
                               </div>
                             )}
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-muted-foreground">Tahmini teslimat:</span>
-                              <span className="font-medium text-foreground">
-                                {estimatedDelivery.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })}
-                              </span>
-                            </div>
                           </>
                         )
                       })()}
@@ -395,7 +387,27 @@ export default function OrderDetailPage() {
                           ? "bg-primary text-primary-foreground rounded-br-md"
                           : "bg-muted rounded-bl-md"
                       }`}>
-                        <p className="text-sm">{msg.content}</p>
+                        {(() => {
+                          const isImageUrl = msg.content.match(/^https?:\/\/.+/i) && 
+                            (msg.content.includes('firebase') || msg.content.includes('firebasestorage') || 
+                             msg.content.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i))
+                          return isImageUrl ? (
+                            <img
+                              src={msg.content}
+                              alt="Mesaj görseli"
+                              className="max-w-xs max-h-48 w-auto h-auto rounded-lg mb-1 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={(e) => {
+                                window.open(msg.content, '_blank')
+                              }}
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.style.display = 'none'
+                              }}
+                            />
+                          ) : (
+                            <p className="text-sm">{msg.content}</p>
+                          )
+                        })()}
                         <p className={`text-[10px] mt-1 ${
                           msg.senderRole === "customer" ? "text-primary-foreground/70" : "text-muted-foreground"
                         }`}>
@@ -452,24 +464,9 @@ export default function OrderDetailPage() {
                 </div>
               </div>
               <div className="border-t pt-4">
-                <div className="space-y-2">
-                  {order.proposedPrice && order.priceChangeStatus === "pending" && (
-                    <div className="flex justify-between items-center p-2 rounded-lg bg-amber-500/10">
-                      <p className="text-sm text-muted-foreground">Önerilen:</p>
-                      <p className="text-lg font-semibold text-amber-600">₺{order.proposedPrice}</p>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center">
-                    <p className="text-muted-foreground">Toplam</p>
-                    <div className="flex items-center gap-2">
-                      {order.proposedPrice && order.priceChangeStatus === "pending" && (
-                        <span className="text-sm line-through text-muted-foreground">₺{order.price}</span>
-                      )}
-                      <p className={`text-xl font-bold ${order.proposedPrice && order.priceChangeStatus === "pending" ? "text-amber-600" : "text-primary"}`}>
-                        ₺{order.proposedPrice && order.priceChangeStatus === "pending" ? order.proposedPrice : order.price}
-                      </p>
-                    </div>
-                  </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-muted-foreground">Toplam</p>
+                  <p className="text-xl font-bold text-primary">₺{order.price}</p>
                 </div>
               </div>
             </CardContent>

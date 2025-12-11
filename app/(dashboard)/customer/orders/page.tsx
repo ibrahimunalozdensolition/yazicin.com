@@ -13,7 +13,7 @@ const statusConfig: Record<OrderStatus, { label: string; color: string; icon: an
   pending: { label: "Onay Bekliyor", color: "text-amber-500 bg-amber-500/10", icon: Clock },
   accepted: { label: "Onaylandı", color: "text-blue-500 bg-blue-500/10", icon: CheckCircle },
   in_production: { label: "Üretimde", color: "text-purple-500 bg-purple-500/10", icon: Package },
-  shipped: { label: "Kargoda", color: "text-cyan-500 bg-cyan-500/10", icon: Truck },
+  shipped: { label: "Üretim Bitti", color: "text-cyan-500 bg-cyan-500/10", icon: CheckCircle },
   delivered: { label: "Teslim Edildi", color: "text-green-500 bg-green-500/10", icon: CheckCircle },
   cancelled: { label: "İptal", color: "text-red-500 bg-red-500/10", icon: XCircle },
 }
@@ -109,6 +109,19 @@ export default function CustomerOrdersPage() {
     if (!timestamp) return "-"
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
     return date.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })
+  }
+
+  const formatProductionTime = (hours: number) => {
+    const totalMinutes = Math.round(hours * 60)
+    if (totalMinutes < 60) {
+      return `${totalMinutes} dakika`
+    }
+    const productionHours = Math.floor(totalMinutes / 60)
+    const remainingMinutes = totalMinutes % 60
+    if (remainingMinutes === 0) {
+      return `${productionHours} saat`
+    }
+    return `${productionHours} saat ${remainingMinutes} dakika`
   }
 
   return (
@@ -211,7 +224,7 @@ export default function CustomerOrdersPage() {
                         <div className="mt-2 flex items-center gap-2 text-sm">
                           <Clock className="h-3.5 w-3.5 text-purple-500" />
                           <span className="text-muted-foreground">
-                            Üretim süresi: {order.productionHours} saat
+                            Üretim süresi: {formatProductionTime(order.productionHours)}
                           </span>
                         </div>
                       )}

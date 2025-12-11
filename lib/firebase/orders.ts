@@ -1,5 +1,6 @@
 import { collection, addDoc, getDocs, doc, updateDoc, getDoc, query, orderBy, where, serverTimestamp, Timestamp, onSnapshot, Unsubscribe } from "firebase/firestore";
 import { db } from "./config";
+import { PrinterService } from "./printers";
 
 export type OrderStatus = "pending" | "accepted" | "in_production" | "shipped" | "delivered" | "cancelled";
 
@@ -108,6 +109,10 @@ export const OrderService = {
 
   updateStatus: async (id: string, status: OrderStatus, additionalData?: Partial<Order>) => {
     const docRef = doc(db, "orders", id);
+    const orderDoc = await getDoc(docRef);
+    if (!orderDoc.exists()) return;
+    
+    const orderData = orderDoc.data() as Order;
     const updateData: Record<string, any> = {
       status,
       updatedAt: serverTimestamp(),
@@ -117,12 +122,21 @@ export const OrderService = {
       updateData.acceptedAt = serverTimestamp();
     } else if (status === "in_production") {
       updateData.productionStartedAt = serverTimestamp();
+      if (orderData.printerId) {
+        await PrinterService.updateStatus(orderData.printerId, "busy");
+      }
     } else if (status === "shipped") {
       updateData.shippedAt = serverTimestamp();
+      if (orderData.printerId) {
+        await PrinterService.updateStatus(orderData.printerId, "active");
+      }
     } else if (status === "delivered") {
       updateData.deliveredAt = serverTimestamp();
     } else if (status === "cancelled") {
       updateData.cancelledAt = serverTimestamp();
+      if (orderData.printerId && orderData.status === "in_production") {
+        await PrinterService.updateStatus(orderData.printerId, "active");
+      }
     }
 
     if (additionalData) {

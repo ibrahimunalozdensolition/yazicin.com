@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Printer, TrendingUp, DollarSign, Package, ArrowRight, Settings, Clock, CheckCircle, ShieldAlert, Loader2, AlertTriangle, Truck, Play, Check, XCircle } from "lucide-react"
+import { Printer, TrendingUp, DollarSign, Package, ArrowRight, Settings, Clock, CheckCircle, ShieldAlert, Loader2, AlertTriangle, Play, Check, XCircle } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { UserService, UserProfile } from "@/lib/firebase/users"
 import { ProviderApplicationService } from "@/lib/firebase/providerApplications"
@@ -15,7 +15,7 @@ const statusConfig: Record<OrderStatus, { label: string; color: string; icon: an
   pending: { label: "Yeni", color: "text-amber-500 bg-amber-500/10", icon: Clock },
   accepted: { label: "Onaylandı", color: "text-blue-500 bg-blue-500/10", icon: CheckCircle },
   in_production: { label: "Üretimde", color: "text-purple-500 bg-purple-500/10", icon: Package },
-  shipped: { label: "Kargoda", color: "text-cyan-500 bg-cyan-500/10", icon: Truck },
+  shipped: { label: "Üretim Bitti", color: "text-cyan-500 bg-cyan-500/10", icon: CheckCircle },
   delivered: { label: "Teslim", color: "text-green-500 bg-green-500/10", icon: CheckCircle },
   cancelled: { label: "İptal", color: "text-red-500 bg-red-500/10", icon: XCircle },
 }
@@ -101,7 +101,7 @@ export default function ProviderDashboard() {
       case "accepted":
         return { label: "Başla", nextStatus: "in_production", icon: Play }
       case "in_production":
-        return { label: "Kargola", nextStatus: "shipped", icon: Truck }
+        return { label: "Üretim Bitti", nextStatus: "shipped", icon: CheckCircle }
       default:
         return null
     }

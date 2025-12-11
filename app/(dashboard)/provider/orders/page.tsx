@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle, Loader2, MessageSquare, Play, Check } from "lucide-react"
+import { ArrowLeft, Package, Clock, CheckCircle, XCircle, Loader2, MessageSquare, Play, Check } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,7 +14,7 @@ const statusConfig: Record<OrderStatus, { label: string; color: string; icon: an
   pending: { label: "Onay Bekliyor", color: "text-amber-500 bg-amber-500/10", icon: Clock },
   accepted: { label: "Onaylandı", color: "text-blue-500 bg-blue-500/10", icon: CheckCircle },
   in_production: { label: "Üretimde", color: "text-purple-500 bg-purple-500/10", icon: Package },
-  shipped: { label: "Kargoda", color: "text-cyan-500 bg-cyan-500/10", icon: Truck },
+  shipped: { label: "Üretim Bitti", color: "text-cyan-500 bg-cyan-500/10", icon: CheckCircle },
   delivered: { label: "Teslim Edildi", color: "text-green-500 bg-green-500/10", icon: CheckCircle },
   cancelled: { label: "İptal", color: "text-red-500 bg-red-500/10", icon: XCircle },
 }
@@ -27,6 +27,7 @@ export default function ProviderOrdersPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [showProductionForm, setShowProductionForm] = useState<string | null>(null)
   const [productionHours, setProductionHours] = useState("")
+  const [productionMinutes, setProductionMinutes] = useState("")
 
   useEffect(() => {
     if (user) {
@@ -62,9 +63,12 @@ export default function ProviderOrdersPage() {
   }
 
   const handleStartProduction = async (orderId: string) => {
-    const hours = parseFloat(productionHours)
-    if (hours > 0) {
-      await handleStatusChange(orderId, "in_production", hours)
+    const hours = parseInt(productionHours) || 0
+    const minutes = parseInt(productionMinutes) || 0
+    const totalHours = hours + (minutes / 60)
+    if (totalHours > 0) {
+      await handleStatusChange(orderId, "in_production", totalHours)
+      setProductionMinutes("")
     }
   }
 
@@ -83,7 +87,7 @@ export default function ProviderOrdersPage() {
       case "accepted":
         return { label: "Üretime Başla", nextStatus: "in_production", icon: Play }
       case "in_production":
-        return { label: "Kargoya Ver", nextStatus: "shipped", icon: Truck }
+        return { label: "Üretim Bitti", nextStatus: "shipped", icon: CheckCircle }
       case "shipped":
         return { label: "Teslim Edildi", nextStatus: "delivered", icon: CheckCircle }
       default:
@@ -239,29 +243,45 @@ export default function ProviderOrdersPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="productionHours">Toplam Üretim Süresi (Saat) *</Label>
-                <Input
-                  id="productionHours"
-                  type="number"
-                  value={productionHours}
-                  onChange={(e) => setProductionHours(e.target.value)}
-                  placeholder="Örn: 5.5"
-                  min="0"
-                  step="0.1"
-                  autoFocus
-                />
-                <p className="text-xs text-muted-foreground">Makine kaç saat kullanılacak?</p>
+                <Label>Toplam Üretim Süresi *</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Input
+                      type="number"
+                      value={productionHours}
+                      onChange={(e) => setProductionHours(e.target.value)}
+                      placeholder="Saat"
+                      min="0"
+                      max="999"
+                      autoFocus
+                    />
+                    <p className="text-xs text-muted-foreground text-center">Saat</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Input
+                      type="number"
+                      value={productionMinutes}
+                      onChange={(e) => setProductionMinutes(e.target.value)}
+                      placeholder="Dakika"
+                      min="0"
+                      max="59"
+                    />
+                    <p className="text-xs text-muted-foreground text-center">Dakika</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Örn: 2 saat 15 dakika</p>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => {
                   setShowProductionForm(null)
                   setProductionHours("")
+                  setProductionMinutes("")
                 }} className="flex-1">
                   İptal
                 </Button>
                 <Button 
                   onClick={() => showProductionForm && handleStartProduction(showProductionForm)} 
-                  disabled={!productionHours || parseFloat(productionHours) <= 0 || actionLoading === showProductionForm}
+                  disabled={(parseInt(productionHours) || 0) === 0 && (parseInt(productionMinutes) || 0) === 0 || actionLoading === showProductionForm}
                   className="flex-1"
                 >
                   {actionLoading === showProductionForm ? (

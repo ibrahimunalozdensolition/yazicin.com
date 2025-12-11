@@ -33,7 +33,7 @@ export interface ProviderApplication {
 }
 
 export const ProviderApplicationService = {
-  submit: async (data: Omit<ProviderApplication, "id" | "status" | "createdAt"> & { location?: { lat: number; lng: number } }) => {
+  submit: async (data: Omit<ProviderApplication, "id" | "status" | "createdAt" | "location"> & { location?: { lat: number; lng: number } }) => {
     const { location, ...restData } = data;
     const docData: any = {
       ...restData,

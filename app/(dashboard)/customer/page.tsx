@@ -12,7 +12,7 @@ const statusConfig: Record<OrderStatus, { label: string; color: string; icon: an
   pending: { label: "Onay Bekliyor", color: "text-amber-500 bg-amber-500/10", icon: Clock },
   accepted: { label: "Onaylandı", color: "text-blue-500 bg-blue-500/10", icon: CheckCircle },
   in_production: { label: "Üretimde", color: "text-purple-500 bg-purple-500/10", icon: Package },
-  shipped: { label: "Kargoda", color: "text-cyan-500 bg-cyan-500/10", icon: Truck },
+  shipped: { label: "Üretim Bitti", color: "text-cyan-500 bg-cyan-500/10", icon: CheckCircle },
   delivered: { label: "Teslim Edildi", color: "text-green-500 bg-green-500/10", icon: CheckCircle },
   cancelled: { label: "İptal", color: "text-red-500 bg-red-500/10", icon: Clock },
 }

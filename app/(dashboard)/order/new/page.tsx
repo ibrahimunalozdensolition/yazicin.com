@@ -88,6 +88,7 @@ export default function NewOrderPage() {
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [sortBy, setSortBy] = useState<"distance" | "price" | "rating">("distance")
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -130,6 +131,24 @@ export default function NewOrderPage() {
       fetchAddresses()
     }
   }, [step, user])
+
+  useEffect(() => {
+    if (providers.length === 0) return
+    
+    const sorted = [...providers].sort((a, b) => {
+      if (sortBy === "price") {
+        return a.estimatedPrice - b.estimatedPrice
+      } else if (sortBy === "rating") {
+        return b.rating - a.rating
+      } else {
+        if (a.distance === undefined) return 1
+        if (b.distance === undefined) return -1
+        return a.distance - b.distance
+      }
+    })
+    
+    setProviders(sorted)
+  }, [sortBy])
 
   const calculatePrice = (printer: PrinterType, modelWeight: number, infill: number, quality: string, quantity: number) => {
     if (!modelWeight || modelWeight === 0) return 0
@@ -627,13 +646,55 @@ export default function NewOrderPage() {
             <>
               <Card className="border-border/50">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Printer className="h-5 w-5 text-muted-foreground" />
-                    Adım 3: Yazıcı Seçimi
-                  </CardTitle>
-                  <CardDescription>
-                    Size en uygun yazıcıyı seçin
-                  </CardDescription>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Printer className="h-5 w-5 text-muted-foreground" />
+                        Adım 3: Yazıcı Seçimi
+                      </CardTitle>
+                      <CardDescription>
+                        Size en uygun yazıcıyı seçin
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSortBy("distance")}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          sortBy === "distance"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                        }`}
+                      >
+                        <MapPin className="h-4 w-4 inline mr-1" />
+                        Konum
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSortBy("price")}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          sortBy === "price"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                        }`}
+                      >
+                        <CreditCard className="h-4 w-4 inline mr-1" />
+                        Fiyat
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSortBy("rating")}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          sortBy === "rating"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                        }`}
+                      >
+                        <Star className="h-4 w-4 inline mr-1" />
+                        Yıldız
+                      </button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {loadingProviders ? (
@@ -823,20 +884,6 @@ export default function NewOrderPage() {
                     <span className="font-medium text-foreground">Toplam</span>
                     <span className="text-xl font-bold text-primary">₺{selectedProvider?.estimatedPrice}</span>
                   </div>
-                  {modelInfo && (
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Tahmini Teslimat:</span>
-                      <span className="text-sm font-medium text-foreground">
-                        {calculateDeliveryTime(
-                          modelInfo.weight,
-                          printSettings.infill,
-                          printSettings.quality,
-                          printSettings.quantity
-                        )} gün
-                      </span>
-                    </div>
-                  )}
                 </div>
                 </div>
 
